@@ -10,10 +10,10 @@
   "dependencies": {
     "@hocuspocus/server": "^3.4.0",
     "axios": "^1.13.2",
-    "chalk": "5.3.0",
-    "dotenv": "16.4.5",
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5",
     "jsonwebtoken": "9.0.2",
-    "yjs": "13.6.19"
+    "yjs": "^13.6.19"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "9.0.6",

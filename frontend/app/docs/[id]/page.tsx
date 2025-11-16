@@ -39,8 +39,8 @@ export default function DocPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-gray-300">
-        <span className="animate-spin h-10 w-10 border-4 border-gray-600 border-t-transparent rounded-full mb-4" />
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center text-gray-600">
+        <span className="animate-spin h-10 w-10 border-4 border-gray-300 border-t-transparent rounded-full mb-4" />
         <p>Loading document...</p>
       </div>
     );
@@ -48,5 +48,9 @@ export default function DocPage() {
 
   if (!user) return null;
 
-  return <CollaborativeEditor documentId={idParam} user={user} />;
+  return (
+    <div className="min-h-screen bg-white">
+      <CollaborativeEditor documentId={idParam} user={user} />
+    </div>
+  );
 }

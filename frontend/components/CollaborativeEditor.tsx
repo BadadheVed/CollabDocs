@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
+import axios from "axios";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
@@ -102,13 +103,13 @@ const MenuBar = ({ editor }: { editor: any }) => {
   };
 
   return (
-    <div className="flex flex-wrap gap-1 p-2 border-b border-gray-800 bg-gray-900/80">
+    <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-white">
       <ToggleGroup type="multiple" className="flex flex-wrap gap-1">
         <Toggle
           size="sm"
           pressed={editor.isActive("bold")}
           onPressedChange={() => editor.chain().focus().toggleBold().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <Bold className="h-4 w-4" />
         </Toggle>
@@ -116,7 +117,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           size="sm"
           pressed={editor.isActive("italic")}
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <Italic className="h-4 w-4" />
         </Toggle>
@@ -124,7 +125,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           size="sm"
           pressed={editor.isActive("underline")}
           onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <UnderlineIcon className="h-4 w-4" />
         </Toggle>
@@ -132,7 +133,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           size="sm"
           pressed={editor.isActive("strike")}
           onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <Strikethrough className="h-4 w-4" />
         </Toggle>
@@ -140,7 +141,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           size="sm"
           pressed={editor.isActive("code")}
           onPressedChange={() => editor.chain().focus().toggleCode().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <Code2 className="h-4 w-4" />
         </Toggle>
@@ -148,7 +149,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           size="sm"
           pressed={editor.isActive("highlight")}
           onPressedChange={() => editor.chain().focus().toggleHighlight().run()}
-          className="data-[state=on]:bg-gray-700"
+          className="data-[state=on]:bg-gray-200"
         >
           <Highlighter className="h-4 w-4" />
         </Toggle>
@@ -162,7 +163,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleHeading({ level: 1 }).run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <Heading1 className="h-4 w-4" />
           </Toggle>
@@ -172,7 +173,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleHeading({ level: 2 }).run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <Heading2 className="h-4 w-4" />
           </Toggle>
@@ -182,7 +183,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleHeading({ level: 3 }).run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <Heading3 className="h-4 w-4" />
           </Toggle>
@@ -197,7 +198,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleBulletList().run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <List className="h-4 w-4" />
           </Toggle>
@@ -207,7 +208,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleOrderedList().run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <ListOrdered className="h-4 w-4" />
           </Toggle>
@@ -217,7 +218,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleBlockquote().run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <Quote className="h-4 w-4" />
           </Toggle>
@@ -227,7 +228,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().toggleCodeBlock().run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <Code className="h-4 w-4" />
           </Toggle>
@@ -242,7 +243,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().setTextAlign("left").run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <AlignLeft className="h-4 w-4" />
           </Toggle>
@@ -252,7 +253,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().setTextAlign("center").run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <AlignCenter className="h-4 w-4" />
           </Toggle>
@@ -262,7 +263,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().setTextAlign("right").run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <AlignRight className="h-4 w-4" />
           </Toggle>
@@ -272,7 +273,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
             onPressedChange={() =>
               editor.chain().focus().setTextAlign("justify").run()
             }
-            className="data-[state=on]:bg-gray-700"
+            className="data-[state=on]:bg-gray-200"
           >
             <AlignJustify className="h-4 w-4" />
           </Toggle>
@@ -345,13 +346,13 @@ const BubbleMenuBar = ({ editor }: { editor: any }) => {
     <BubbleMenu
       editor={editor}
       tippyOptions={{ duration: 100 }}
-      className="bg-gray-800 border border-gray-700 rounded-md shadow-lg p-1 flex gap-1"
+      className="bg-white border border-gray-300 rounded-md shadow-lg p-1 flex gap-1"
     >
       <Toggle
         size="sm"
         pressed={editor.isActive("bold")}
         onPressedChange={() => editor.chain().focus().toggleBold().run()}
-        className="data-[state=on]:bg-gray-700"
+        className="data-[state=on]:bg-gray-200"
       >
         <Bold className="h-4 w-4" />
       </Toggle>
@@ -359,7 +360,7 @@ const BubbleMenuBar = ({ editor }: { editor: any }) => {
         size="sm"
         pressed={editor.isActive("italic")}
         onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-        className="data-[state=on]:bg-gray-700"
+        className="data-[state=on]:bg-gray-200"
       >
         <Italic className="h-4 w-4" />
       </Toggle>
@@ -367,7 +368,7 @@ const BubbleMenuBar = ({ editor }: { editor: any }) => {
         size="sm"
         pressed={editor.isActive("underline")}
         onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-        className="data-[state=on]:bg-gray-700"
+        className="data-[state=on]:bg-gray-200"
       >
         <UnderlineIcon className="h-4 w-4" />
       </Toggle>
@@ -375,7 +376,7 @@ const BubbleMenuBar = ({ editor }: { editor: any }) => {
         size="sm"
         pressed={editor.isActive("strike")}
         onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-        className="data-[state=on]:bg-gray-700"
+        className="data-[state=on]:bg-gray-200"
       >
         <Strikethrough className="h-4 w-4" />
       </Toggle>
@@ -397,7 +398,7 @@ const BubbleMenuBar = ({ editor }: { editor: any }) => {
             .setLink({ href: url })
             .run();
         }}
-        className="data-[state=on]:bg-gray-700"
+        className="data-[state=on]:bg-gray-200"
       >
         <Link2 className="h-4 w-4" />
       </Toggle>
@@ -416,6 +417,35 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     useState<string>("Untitled Document");
 
   const ydoc = useMemo(() => new Y.Doc(), []);
+
+  // Fetch document title from backend
+  useEffect(() => {
+    const fetchDocumentTitle = async () => {
+      if (!user?.token) return;
+
+      const tokenParts = user.token.split(":");
+      if (tokenParts.length !== 3) return;
+
+      const [docId, pin] = tokenParts;
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+
+      try {
+        const response = await axios.post(`${API_BASE_URL}/docs/join`, {
+          docId: parseInt(docId),
+          pin: parseInt(pin),
+        });
+        console.log("got the resposnse as the ", response.data.title);
+        if (response.data.title) {
+          setDocumentTitle(response.data.title);
+        }
+      } catch (error) {
+        console.error("Failed to fetch document title:", error);
+      }
+    };
+
+    fetchDocumentTitle();
+  }, [user?.token]);
 
   useEffect(() => {
     if (!user?.token) {
@@ -501,7 +531,8 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
                 history: false,
                 codeBlock: {
                   HTMLAttributes: {
-                    class: "bg-gray-800 rounded p-4 my-2 font-mono text-sm",
+                    class:
+                      "bg-gray-100 rounded p-4 my-2 font-mono text-sm border border-gray-200",
                   },
                 },
                 bulletList: {
@@ -517,7 +548,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
                 blockquote: {
                   HTMLAttributes: {
                     class:
-                      "border-l-4 border-gray-500 pl-4 py-1 my-2 text-gray-300",
+                      "border-l-4 border-gray-300 pl-4 py-1 my-2 text-gray-600",
                   },
                 },
               }),
@@ -529,7 +560,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
               Link.configure({
                 openOnClick: true,
                 HTMLAttributes: {
-                  class: "text-blue-400 hover:text-blue-300 underline",
+                  class: "text-blue-600 hover:text-blue-700 underline",
                 },
               }),
               Underline,
@@ -581,7 +612,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       editorProps: {
         attributes: {
           class:
-            "prose prose-invert max-w-none min-h-[60vh] focus:outline-none p-4",
+            "prose prose-gray max-w-none min-h-[60vh] focus:outline-none p-4",
         },
       },
     },
@@ -601,10 +632,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   }[status];
   if (!provider || !isProviderReady || !editor) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[60vh] bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
-          <p className="text-gray-400">
+          <p className="text-gray-600">
             {!provider
               ? "Initializing..."
               : "Connecting to collaboration server..."}
@@ -615,10 +646,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <header className="sticky top-0 z-10 bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:bg-gray-900/60 border border-gray-800 rounded-md px-4 py-3 flex items-center justify-between">
+    <div className="space-y-4 bg-white min-h-screen p-4">
+      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-white truncate max-w-md">
+          <h1 className="text-lg font-semibold text-gray-900 truncate max-w-md">
             {documentTitle}
           </h1>
           <div className="flex items-center gap-3">
@@ -628,14 +659,14 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
               }`}
               title={status}
             />
-            <span className="text-sm text-gray-300">
-              <span className="text-white font-medium">{userCount}</span>{" "}
+            <span className="text-sm text-gray-600">
+              <span className="text-gray-900 font-medium">{userCount}</span>{" "}
               {userCount === 1 ? "user" : "users"}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded">
+          <span className="text-xs text-gray-600 px-2 py-1 bg-gray-100 rounded border border-gray-200">
             {status === "connected"
               ? "🟢 Connected"
               : status === "connecting"
@@ -645,7 +676,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
         </div>
       </header>
 
-      <div className="border border-gray-800 rounded-md bg-gray-900/50 overflow-hidden">
+      <div className="border border-gray-200 rounded-md bg-white overflow-hidden shadow-sm">
         {editor && <MenuBar editor={editor} />}
         {editor && <BubbleMenuBar editor={editor} />}
         <EditorContent
@@ -680,81 +711,75 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           background-color: var(--cursor-color);
         }
 
-        /* Editor prose styles for dark mode */
-        .prose-invert {
-          color: #e5e7eb;
+        /* Editor prose styles for light mode */
+        .prose-gray {
+          color: #1f2937;
           padding: 1rem;
         }
 
-        .prose-invert h1 {
+        .prose-gray h1 {
           font-size: 2.25rem;
           font-weight: 700;
           margin: 1.5rem 0 1rem;
           line-height: 1.2;
+          color: #111827;
         }
 
-        .prose-invert h2 {
+        .prose-gray h2 {
           font-size: 1.875rem;
           font-weight: 600;
           margin: 1.25rem 0 1rem;
           line-height: 1.3;
+          color: #111827;
         }
 
-        .prose-invert h3 {
+        .prose-gray h3 {
           font-size: 1.5rem;
           font-weight: 600;
           margin: 1rem 0;
           line-height: 1.4;
+          color: #111827;
         }
 
-        .prose-invert p {
+        .prose-gray p {
           margin: 1rem 0;
           line-height: 1.7;
+          color: #374151;
         }
 
-        .prose-invert img {
+        .prose-gray img {
           border-radius: 0.5rem;
           margin: 1.5rem 0;
         }
 
-        .prose-invert table {
+        .prose-gray table {
           width: 100%;
           border-collapse: collapse;
           margin: 1.5rem 0;
         }
 
-        .prose-invert th,
-        .prose-invert td {
-          border: 1px solid #374151;
+        .prose-gray th,
+        .prose-gray td {
+          border: 1px solid #d1d5db;
           padding: 0.5rem 1rem;
           text-align: left;
         }
 
-        .prose-invert th {
-          background-color: rgba(55, 65, 81, 0.5);
+        .prose-gray th {
+          background-color: #f3f4f6;
           font-weight: 600;
         }
 
-        .prose-invert tr:nth-child(even) {
-          background-color: rgba(31, 41, 55, 0.5);
+        .prose-gray tr:nth-child(even) {
+          background-color: #f9fafb;
         }
 
         .ProseMirror:focus {
           outline: none;
         }
 
-        .prose-invert h1,
-        .prose-invert h2,
-        .prose-invert h3 {
-          color: #f9fafb;
-        }
-
-        .prose-invert p {
-          color: #d1d5db;
-        }
-
-        .prose-invert strong {
-          color: #f3f4f6;
+        .prose-gray strong {
+          color: #111827;
         }
       `}</style>
     </div>

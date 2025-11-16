@@ -17,6 +17,7 @@ export default function JoinPage() {
   const [documentData, setDocumentData] = useState<{
     id: string;
     title: string;
+    userCount?: number;
   } | null>(null);
 
   const validateCredentials = async () => {
@@ -45,7 +46,22 @@ export default function JoinPage() {
       });
 
       const { id, title } = response.data;
-      setDocumentData({ id, title });
+
+      // Fetch user count from Hocuspocus server
+      let userCount = 0;
+      try {
+        const wsApiUrl =
+          process.env.NEXT_PUBLIC_WS_API_URL || "http://localhost:1235";
+        const userCountResponse = await fetch(`${wsApiUrl}/room/${id}`);
+        if (userCountResponse.ok) {
+          const data = await userCountResponse.json();
+          userCount = data.userCount;
+        }
+      } catch (error) {
+        console.log("Could not fetch user count:", error);
+      }
+
+      setDocumentData({ id, title, userCount });
       setValidated(true);
       setError("");
     } catch (error: any) {
@@ -133,8 +149,22 @@ export default function JoinPage() {
           </>
         ) : (
           <>
-            <div className="p-3 bg-green-900/20 border border-green-700 rounded-lg mb-4">
-              <p className="text-green-300 text-sm">✓ Credentials verified!</p>
+            <div className="p-3 bg-green-900/20 border border-green-700 rounded-lg mb-4 space-y-2">
+              <p className="text-green-300 text-sm font-medium">
+                ✓ Credentials verified!
+              </p>
+              <p className="text-gray-300 text-sm">
+                Document:{" "}
+                <span className="font-semibold">{documentData?.title}</span>
+              </p>
+              {documentData?.userCount !== undefined && (
+                <p className="text-blue-300 text-sm">
+                  Users in the Room:{" "}
+                  <span className="font-semibold">
+                    {documentData.userCount}
+                  </span>
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
