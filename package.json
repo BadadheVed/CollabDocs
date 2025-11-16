@@ -1,5 +1,5 @@
 {
-  "name": "froncort-assignment",
+  "name": "CollabDocs",
   "version": "1.0.0",
   "description": "Collaborative Document Editor with WebSocket support",
   "scripts": {
