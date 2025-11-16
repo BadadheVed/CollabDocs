@@ -4,6 +4,7 @@ import { useState } from "react";
 import axios from "@/axios/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
@@ -20,12 +21,12 @@ export default function HomePage() {
 
   const createDocument = async () => {
     if (!title.trim()) {
-      alert("Please enter a document title");
+      toast.error("Please enter a document title");
       return;
     }
 
     if (!creatorName.trim()) {
-      alert("Please enter your name");
+      toast.error("Please enter your name");
       return;
     }
 
@@ -36,9 +37,10 @@ export default function HomePage() {
       });
       setCreatedDoc(response.data);
       setStep("created");
+      toast.success("Document created successfully!");
     } catch (error) {
       console.error("Failed to create document:", error);
-      alert("Failed to create document. Please try again.");
+      toast.error("Failed to create document. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -49,6 +51,7 @@ export default function HomePage() {
     const text = `Document ID: ${createdDoc.docId}\nPin: ${createdDoc.pin}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
+    toast.success("Credentials copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -60,26 +63,26 @@ export default function HomePage() {
   };
 
   return (
-    <main className="max-w-2xl mx-auto space-y-8">
+    <main className="max-w-2xl mx-auto space-y-8 py-12">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-white">
+        <h1 className="text-4xl font-bold text-gray-900">
           Froncort Collaborative Docs
         </h1>
-        <p className="text-gray-400">
+        <p className="text-gray-600">
           Create collaborative documents and share them with your team
         </p>
       </div>
 
       {/* Create Document Section */}
-      <div className="bg-gray-800 rounded-lg p-6 space-y-4">
-        <h2 className="text-xl font-semibold text-white">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-gray-900">
           Create New Document
         </h2>
 
         {step === "form" ? (
           <>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">
+              <label className="text-sm font-medium text-gray-700">
                 Your Name
               </label>
               <Input
@@ -92,7 +95,7 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">
+              <label className="text-sm font-medium text-gray-700">
                 Document Title
               </label>
               <Input
@@ -114,20 +117,20 @@ export default function HomePage() {
           </>
         ) : (
           <div className="space-y-4">
-            <div className="p-4 bg-green-900/20 border border-green-700 rounded-lg space-y-3">
-              <h3 className="text-lg font-medium text-green-300">
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+              <h3 className="text-lg font-medium text-green-800">
                 Document Created Successfully!
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-400">Document ID:</span>
-                  <div className="font-mono text-white text-lg">
+                  <span className="text-gray-600">Document ID:</span>
+                  <div className="font-mono text-gray-900 text-lg">
                     {createdDoc?.docId}
                   </div>
                 </div>
                 <div>
-                  <span className="text-gray-400">Pin:</span>
-                  <div className="font-mono text-white text-lg">
+                  <span className="text-gray-600">Pin:</span>
+                  <div className="font-mono text-gray-900 text-lg">
                     {createdDoc?.pin}
                   </div>
                 </div>
@@ -159,8 +162,8 @@ export default function HomePage() {
       </div>
 
       {/* Join Document Section */}
-      <div className="bg-gray-800 rounded-lg p-6 space-y-4">
-        <h2 className="text-xl font-semibold text-white">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4 shadow-sm">
+        <h2 className="text-xl font-semibold text-gray-900">
           Join Existing Document
         </h2>
         <Link href="/join">
