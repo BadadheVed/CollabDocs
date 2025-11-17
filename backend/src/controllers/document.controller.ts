@@ -12,7 +12,7 @@ export const createDocument = async (req: Request, res: Response) => {
 
     const docId = parseInt(generateRoomCode());
     const pin = parseInt(generatePin());
-    const baseURL = process.env.BASE_URL || "http://localhost:3000";
+    const baseURL = process.env.FRONTEND_URL || "http://localhost:3000";
 
     const document = await prisma.document.create({
       data: {

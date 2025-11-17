@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -29,7 +29,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import {
   Bold,
@@ -54,22 +67,50 @@ import {
   Youtube as YoutubeIcon,
   Palette,
   Highlighter,
+  FileUp,
+  FileDown,
+  Info,
+  Upload,
 } from "lucide-react";
+import {
+  extractTextFromPDF,
+  exportEditorToPDF,
+  validatePDFFile,
+  extractTextFromWord,
+  exportEditorToWord,
+  validateWordFile,
+} from "@/lib/pdfUtils";
+import { toast } from "sonner";
+import {
+  LinkDialog,
+  ImageDialog,
+  YouTubeDialog,
+} from "@/components/EditorDialogs";
 
 const MenuBar = ({ editor }: { editor: any }) => {
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
+
   if (!editor) {
     return null;
   }
 
-  const addImage = () => {
-    const url = window.prompt("Enter the URL of the image:");
+  const handleLinkSubmit = (url: string) => {
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  const handleImageSubmit = (url: string) => {
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
     }
   };
 
-  const addYoutubeVideo = () => {
-    const url = window.prompt("Enter YouTube URL:");
+  const handleYoutubeSubmit = (url: string) => {
     if (url) {
       editor.commands.setYoutubeVideo({
         src: url,
@@ -77,17 +118,6 @@ const MenuBar = ({ editor }: { editor: any }) => {
         height: 480,
       });
     }
-  };
-
-  const setLink = () => {
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("URL", previousUrl);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
   const addTable = () => {
@@ -310,12 +340,22 @@ const MenuBar = ({ editor }: { editor: any }) => {
           </PopoverContent>
         </Popover>
 
-        <Button variant="ghost" size="sm" className="h-8" onClick={setLink}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          onClick={() => setLinkDialogOpen(true)}
+        >
           <Link2 className="h-4 w-4 mr-1" />
           Link
         </Button>
 
-        <Button variant="ghost" size="sm" className="h-8" onClick={addImage}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          onClick={() => setImageDialogOpen(true)}
+        >
           <ImageIcon className="h-4 w-4 mr-1" />
           Image
         </Button>
@@ -324,7 +364,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
           variant="ghost"
           size="sm"
           className="h-8"
-          onClick={addYoutubeVideo}
+          onClick={() => setYoutubeDialogOpen(true)}
         >
           <YoutubeIcon className="h-4 w-4 mr-1" />
           YouTube
@@ -335,74 +375,97 @@ const MenuBar = ({ editor }: { editor: any }) => {
           Table
         </Button>
       </ToggleGroup>
+
+      {/* Dialogs */}
+      <LinkDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        onSubmit={handleLinkSubmit}
+        initialUrl={editor.getAttributes("link").href}
+      />
+      <ImageDialog
+        open={imageDialogOpen}
+        onOpenChange={setImageDialogOpen}
+        onSubmit={handleImageSubmit}
+      />
+      <YouTubeDialog
+        open={youtubeDialogOpen}
+        onOpenChange={setYoutubeDialogOpen}
+        onSubmit={handleYoutubeSubmit}
+      />
     </div>
   );
 };
 
 const BubbleMenuBar = ({ editor }: { editor: any }) => {
+  const [bubbleLinkDialogOpen, setBubbleLinkDialogOpen] = useState(false);
+
   if (!editor) return null;
 
+  const handleBubbleLinkSubmit = (url: string) => {
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
   return (
-    <BubbleMenu
-      editor={editor}
-      tippyOptions={{ duration: 100 }}
-      className="bg-white border border-gray-300 rounded-md shadow-lg p-1 flex gap-1"
-    >
-      <Toggle
-        size="sm"
-        pressed={editor.isActive("bold")}
-        onPressedChange={() => editor.chain().focus().toggleBold().run()}
-        className="data-[state=on]:bg-gray-200"
+    <>
+      <BubbleMenu
+        editor={editor}
+        tippyOptions={{ duration: 100 }}
+        className="bg-white border border-gray-300 rounded-md shadow-lg p-1 flex gap-1"
       >
-        <Bold className="h-4 w-4" />
-      </Toggle>
-      <Toggle
-        size="sm"
-        pressed={editor.isActive("italic")}
-        onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-        className="data-[state=on]:bg-gray-200"
-      >
-        <Italic className="h-4 w-4" />
-      </Toggle>
-      <Toggle
-        size="sm"
-        pressed={editor.isActive("underline")}
-        onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-        className="data-[state=on]:bg-gray-200"
-      >
-        <UnderlineIcon className="h-4 w-4" />
-      </Toggle>
-      <Toggle
-        size="sm"
-        pressed={editor.isActive("strike")}
-        onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-        className="data-[state=on]:bg-gray-200"
-      >
-        <Strikethrough className="h-4 w-4" />
-      </Toggle>
-      <Toggle
-        size="sm"
-        pressed={editor.isActive("link")}
-        onPressedChange={() => {
-          const previousUrl = editor.getAttributes("link").href;
-          const url = window.prompt("URL", previousUrl);
-          if (url === null) return;
-          if (url === "") {
-            editor.chain().focus().extendMarkRange("link").unsetLink().run();
-            return;
-          }
-          editor
-            .chain()
-            .focus()
-            .extendMarkRange("link")
-            .setLink({ href: url })
-            .run();
-        }}
-        className="data-[state=on]:bg-gray-200"
-      >
-        <Link2 className="h-4 w-4" />
-      </Toggle>
-    </BubbleMenu>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive("bold")}
+          onPressedChange={() => editor.chain().focus().toggleBold().run()}
+          className="data-[state=on]:bg-gray-200"
+        >
+          <Bold className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive("italic")}
+          onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+          className="data-[state=on]:bg-gray-200"
+        >
+          <Italic className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive("underline")}
+          onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
+          className="data-[state=on]:bg-gray-200"
+        >
+          <UnderlineIcon className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive("strike")}
+          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+          className="data-[state=on]:bg-gray-200"
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive("link")}
+          onPressedChange={() => setBubbleLinkDialogOpen(true)}
+          className="data-[state=on]:bg-gray-200"
+        >
+          <Link2 className="h-4 w-4" />
+        </Toggle>
+      </BubbleMenu>
+
+      <LinkDialog
+        open={bubbleLinkDialogOpen}
+        onOpenChange={setBubbleLinkDialogOpen}
+        onSubmit={handleBubbleLinkSubmit}
+        initialUrl={editor.getAttributes("link").href}
+      />
+    </>
   );
 };
 
@@ -415,6 +478,14 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const [isProviderReady, setIsProviderReady] = useState(false);
   const [documentTitle, setDocumentTitle] =
     useState<string>("Untitled Document");
+  const [isImportingPDF, setIsImportingPDF] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isImportingWord, setIsImportingWord] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const wordInputRef = useRef<HTMLInputElement>(null);
+  const [showPdfBetaDialog, setShowPdfBetaDialog] = useState(false);
+  const [isDraggingPdf, setIsDraggingPdf] = useState(false);
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -625,6 +696,191 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       ydoc?.destroy();
     };
   }, []);
+
+  // PDF Import Handler
+  const handleImportPDF = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImportingPDF(true);
+      toast.info("Importing PDF...");
+
+      // Validate PDF file
+      validatePDFFile(file);
+
+      // Extract text from PDF
+      const htmlContent = await extractTextFromPDF(file);
+
+      // Insert content into editor
+      if (editor) {
+        editor.commands.setContent(htmlContent);
+        toast.success(
+          "PDF imported successfully! (Text only - full support coming soon)"
+        );
+      }
+    } catch (error: any) {
+      console.error("PDF import error:", error);
+      toast.error(error.message || "Failed to import PDF");
+    } finally {
+      setIsImportingPDF(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Handle PDF beta dialog confirm
+  const handlePdfBetaConfirm = () => {
+    setShowPdfBetaDialog(false);
+    // Trigger file input after dialog confirmation
+    triggerFileInput();
+  };
+
+  // Handle PDF beta dialog cancel
+  const handlePdfBetaCancel = () => {
+    setShowPdfBetaDialog(false);
+  };
+
+  // Drag and drop handlers for PDF
+  const handlePdfDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPdf(true);
+  };
+
+  const handlePdfDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPdf(false);
+  };
+
+  const handlePdfDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPdf(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type === "application/pdf") {
+        // Show beta dialog before processing dropped PDF
+        setShowPdfBetaDialog(true);
+        // Store the file in the file input for processing after confirmation
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        if (fileInputRef.current) {
+          fileInputRef.current.files = dataTransfer.files;
+        }
+      } else {
+        toast.error("Please drop a PDF file");
+      }
+    }
+  };
+
+  // PDF Export Handler
+  const handleExportPDF = async () => {
+    if (!editor) return;
+
+    try {
+      setIsExportingPDF(true);
+      toast.info("Generating PDF document...");
+
+      // Get HTML content from editor
+      const html = editor.getHTML();
+
+      // Generate filename from document title
+      const filename = `${documentTitle
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()}.pdf`;
+
+      // Export to PDF
+      await exportEditorToPDF(html, filename);
+
+      toast.success("PDF exported successfully!");
+    } catch (error: any) {
+      console.error("PDF export error:", error);
+      toast.error(error.message || "Failed to export PDF");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  // Trigger file input click
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Word Import Handler
+  const handleImportWord = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImportingWord(true);
+      toast.info("Importing Word document...");
+
+      // Validate Word file
+      validateWordFile(file);
+
+      // Extract text and HTML from Word
+      const htmlContent = await extractTextFromWord(file);
+
+      // Insert content into editor
+      if (editor) {
+        editor.commands.setContent(htmlContent);
+        toast.success("Word document imported successfully!");
+      }
+    } catch (error: any) {
+      console.error("Word import error:", error);
+      toast.error(error.message || "Failed to import Word document");
+    } finally {
+      setIsImportingWord(false);
+      // Reset file input
+      if (wordInputRef.current) {
+        wordInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Word Export Handler
+  const handleExportWord = async () => {
+    if (!editor) return;
+
+    try {
+      setIsExportingWord(true);
+      toast.info("Generating Word document...");
+
+      // Get HTML content from editor
+      const html = editor.getHTML();
+
+      // Generate filename from document title
+      const filename = `${documentTitle
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()}.docx`;
+
+      // Export to Word
+      await exportEditorToWord(html, filename);
+
+      toast.success("Word document exported successfully!");
+    } catch (error: any) {
+      console.error("Word export error:", error);
+      toast.error(error.message || "Failed to export Word document");
+    } finally {
+      setIsExportingWord(false);
+    }
+  };
+
+  // Trigger Word file input click
+  const triggerWordInput = () => {
+    wordInputRef.current?.click();
+  };
+
   const statusColor = {
     connecting: "bg-yellow-400",
     connected: "bg-green-400",
@@ -646,44 +902,206 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   }
 
   return (
-    <div className="space-y-4 bg-white min-h-screen p-4">
+    <div className="space-y-2 bg-white min-h-screen p-4">
       <header className="sticky top-0 z-10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-gray-900 truncate max-w-md">
             {documentTitle}
           </h1>
           <div className="flex items-center gap-3">
-            <span
-              className={`h-3 w-3 rounded-full ${statusColor} ${
-                status === "connecting" ? "animate-pulse" : ""
-              }`}
-              title={status}
-            />
-            <span className="text-sm text-gray-600">
-              <span className="text-gray-900 font-medium">{userCount}</span>{" "}
-              {userCount === 1 ? "user" : "users"}
-            </span>
+            <div className="relative group flex items-center">
+              <span
+                className={`h-3 w-3 rounded-full ${statusColor} ${
+                  status === "connecting" ? "animate-pulse" : ""
+                } cursor-pointer transition-all duration-200`}
+              />
+              <span
+                className="
+                  ml-2 mr-2 max-w-0 overflow-hidden
+                  whitespace-nowrap
+                  text-gray-900 text-xs font-medium
+                  
+                  group-hover:max-w-xs
+                  transition-all duration-300 ease-out
+                "
+              >
+                {status === "connected"
+                  ? "✓ You are Connected to WebSocket server"
+                  : status === "connecting"
+                  ? "⏳ Connecting to WebSocket..."
+                  : "✗ Disconnected from WebSocket"}
+              </span>
+              <span className="text-sm text-gray-600">
+                <span className="text-gray-900 font-medium">{userCount}</span>{" "}
+                {userCount === 1 ? "user" : "users"}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-600 px-2 py-1 bg-gray-100 rounded border border-gray-200">
+        <div className="flex items-center gap-2">
+          {/* PDF Import Button with Beta Info */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleImportPDF}
+            className="hidden"
+          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPdfBetaDialog(true)}
+                  disabled={isImportingPDF || !editor}
+                  className="gap-2"
+                >
+                  <FileUp className="h-4 w-4" />
+                  {isImportingPDF ? "Importing..." : "Import PDF"}
+                  <Info className="h-4 w-4 text-blue-500 ml-1" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Beta Version - Text-only PDF support</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* PDF Export Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={isExportingPDF || !editor}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            {isExportingPDF ? "Exporting..." : "Export PDF"}
+          </Button>
+
+          {/* Word Import Button */}
+          <input
+            ref={wordInputRef}
+            type="file"
+            accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+            onChange={handleImportWord}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={triggerWordInput}
+            disabled={isImportingWord || !editor}
+            className="gap-2"
+          >
+            <FileUp className="h-4 w-4" />
+            {isImportingWord ? "Importing..." : "Import Word"}
+          </Button>
+
+          {/* Word Export Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportWord}
+            disabled={isExportingWord || !editor}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            {isExportingWord ? "Exporting..." : "Export Word"}
+          </Button>
+
+          {/* Connection Status Badge */}
+          {/* <span className="text-xs text-gray-600 px-2 py-1 bg-gray-100 rounded border border-gray-200">
             {status === "connected"
               ? "🟢 Connected"
               : status === "connecting"
               ? "🟡 Connecting..."
               : "🔴 Disconnected"}
-          </span>
+          </span> */}
         </div>
       </header>
 
-      <div className="border border-gray-200 rounded-md bg-white overflow-hidden shadow-sm">
+      <div className="sticky top-[4.5rem] z-[5] bg-white border border-gray-200 rounded-md shadow-sm">
         {editor && <MenuBar editor={editor} />}
-        {editor && <BubbleMenuBar editor={editor} />}
-        <EditorContent
-          editor={editor}
-          className="min-h-[60vh] p-4 focus:outline-none overflow-y-auto"
-        />
       </div>
+
+      <div className="border border-gray-200 rounded-md bg-white overflow-hidden shadow-sm">
+        {editor && <BubbleMenuBar editor={editor} />}
+        <div
+          onDragOver={handlePdfDragOver}
+          onDragLeave={handlePdfDragLeave}
+          onDrop={handlePdfDrop}
+          className={`relative ${isDraggingPdf ? "bg-blue-50" : ""}`}
+        >
+          {isDraggingPdf && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-50 bg-opacity-90 border-2 border-dashed border-blue-400 rounded-md">
+              <div className="text-center">
+                <Upload className="h-12 w-12 text-blue-500 mx-auto mb-2" />
+                <p className="text-lg font-semibold text-blue-700">
+                  Drop PDF file here
+                </p>
+                <p className="text-sm text-blue-600">
+                  Beta: Text-only PDF support
+                </p>
+              </div>
+            </div>
+          )}
+          <EditorContent
+            editor={editor}
+            className="min-h-[60vh] p-4 focus:outline-none overflow-y-auto"
+          />
+        </div>
+      </div>
+
+      {/* PDF Beta Warning Dialog */}
+      <Dialog open={showPdfBetaDialog} onOpenChange={setShowPdfBetaDialog}>
+        <DialogContent className="sm:max-w-md bg-inherit">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 bg-inherit">
+              <Info className="h-5 w-5 text-blue-500" />
+              PDF Import - Beta Version
+            </DialogTitle>
+            <DialogDescription className="space-y-3 pt-2">
+              <p className="text-sm text-gray-700">
+                We are currently in <strong>Beta</strong> for PDF import
+                functionality.
+              </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-sm text-yellow-800 font-medium mb-1">
+                  ⚠️ Current Limitations:
+                </p>
+                <ul className="text-xs text-yellow-700 list-disc list-inside space-y-1">
+                  <li>Only text content will be imported</li>
+                  <li>
+                    Complex structures (tables, images, graphs) are not
+                    supported
+                  </li>
+                  <li>Formatting may not be preserved perfectly</li>
+                </ul>
+              </div>
+              <p className="text-sm text-gray-600">
+                Full PDF support features is coming soon!
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handlePdfBetaCancel}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePdfBetaConfirm}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              Continue to Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx global>{`
         .collaboration-cursor__caret {
