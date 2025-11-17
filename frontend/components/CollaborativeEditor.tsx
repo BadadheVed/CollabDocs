@@ -485,7 +485,6 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wordInputRef = useRef<HTMLInputElement>(null);
   const [showPdfBetaDialog, setShowPdfBetaDialog] = useState(false);
-  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
 
   const ydoc = useMemo(() => new Y.Doc(), []);
@@ -705,13 +704,6 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Show beta warning dialog
-    setPendingPdfFile(file);
-    setShowPdfBetaDialog(true);
-  };
-
-  // Process PDF after confirmation
-  const processPdfImport = async (file: File) => {
     try {
       setIsImportingPDF(true);
       toast.info("Importing PDF...");
@@ -734,7 +726,6 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       toast.error(error.message || "Failed to import PDF");
     } finally {
       setIsImportingPDF(false);
-      setPendingPdfFile(null);
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -745,18 +736,13 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   // Handle PDF beta dialog confirm
   const handlePdfBetaConfirm = () => {
     setShowPdfBetaDialog(false);
-    if (pendingPdfFile) {
-      processPdfImport(pendingPdfFile);
-    }
+    // Trigger file input after dialog confirmation
+    triggerFileInput();
   };
 
   // Handle PDF beta dialog cancel
   const handlePdfBetaCancel = () => {
     setShowPdfBetaDialog(false);
-    setPendingPdfFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
 
   // Drag and drop handlers for PDF
@@ -781,8 +767,14 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     if (files.length > 0) {
       const file = files[0];
       if (file.type === "application/pdf") {
-        setPendingPdfFile(file);
+        // Show beta dialog before processing dropped PDF
         setShowPdfBetaDialog(true);
+        // Store the file in the file input for processing after confirmation
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        if (fileInputRef.current) {
+          fileInputRef.current.files = dataTransfer.files;
+        }
       } else {
         toast.error("Please drop a PDF file");
       }
@@ -955,32 +947,26 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
             onChange={handleImportPDF}
             className="hidden"
           />
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={triggerFileInput}
-              disabled={isImportingPDF || !editor}
-              className="gap-2"
-            >
-              <FileUp className="h-4 w-4" />
-              {isImportingPDF ? "Importing..." : "Import PDF"}
-            </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-help">
-                    <Info className="h-4 w-4 text-blue-500" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    Beta Version - Text-only PDF support
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPdfBetaDialog(true)}
+                  disabled={isImportingPDF || !editor}
+                  className="gap-2"
+                >
+                  <FileUp className="h-4 w-4" />
+                  {isImportingPDF ? "Importing..." : "Import PDF"}
+                  <Info className="h-4 w-4 text-blue-500 ml-1" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Beta Version - Text-only PDF support</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* PDF Export Button */}
           <Button
@@ -1070,9 +1056,9 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
 
       {/* PDF Beta Warning Dialog */}
       <Dialog open={showPdfBetaDialog} onOpenChange={setShowPdfBetaDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-inherit">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 bg-inherit">
               <Info className="h-5 w-5 text-blue-500" />
               PDF Import - Beta Version
             </DialogTitle>
@@ -1095,7 +1081,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
                 </ul>
               </div>
               <p className="text-sm text-gray-600">
-                Full PDF support with advanced features is coming soon!
+                Full PDF support features is coming soon!
               </p>
             </DialogDescription>
           </DialogHeader>

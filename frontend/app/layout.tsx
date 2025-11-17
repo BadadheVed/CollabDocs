@@ -1,6 +1,6 @@
 import React from "react";
 import Script from "next/script";
-import { Toaster } from "sonner";
+import ToasterProvider from "@/components/ToasterProvider";
 
 export default function RootLayout({
   children,
@@ -29,7 +29,7 @@ export default function RootLayout({
       </head>
       <body className="bg-white text-gray-900 min-h-screen antialiased">
         {children}
-        <Toaster />
+        <ToasterProvider />
       </body>
     </html>
   );
