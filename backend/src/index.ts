@@ -29,7 +29,7 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 8080);
 
 (async () => {
   try {
