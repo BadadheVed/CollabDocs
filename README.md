@@ -1,4 +1,4 @@
-# Froncort Collaborative Document Editor
+# Collaborative Document Editor
 
 A real-time collaborative document editor built with Next.js, Express.js, and WebSockets using Hocuspocus.
 
@@ -27,8 +27,8 @@ A real-time collaborative document editor built with Next.js, Express.js, and We
 ### 1. Database Setup
 
 ```bash
-# Start PostgreSQL and create a database named 'froncort'
-createdb froncort
+# Start PostgreSQL and create a database named 'collabdocs'
+createdb collabdocs
 ```
 
 ### 2. Backend Setup
@@ -104,7 +104,7 @@ Validates document access
 ### Backend (.env)
 
 ```
-DATABASE_URL="postgresql://username:password@localhost:5432/froncort"
+DATABASE_URL="postgresql://username:password@localhost:5432/collabdocs"
 PORT=3001
 FRONTEND_URL="http://localhost:3000"
 BASE_URL="http://localhost:3000"
