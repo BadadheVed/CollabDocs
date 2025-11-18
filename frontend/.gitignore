@@ -28,6 +28,7 @@ pnpm-debug.log*
 .idea/
 *.swp
 *.swo
+.env.dev
 
 # OS generated files
 .DS_Store
