@@ -4,7 +4,7 @@ import docsRouter from "@/routers/docs";
 
 const app = express();
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-
+import { cronJob } from "./cron";
 // CORS configuration
 app.use(
   cors({
@@ -18,6 +18,7 @@ app.use(
 app.use(express.json());
 
 // Health check endpoint
+cronJob.start();
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
