@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabdocs-be
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: collabdocs-be
+  template:
+    metadata:
+      labels:
+        app: collabdocs-be
+    spec:
+      containers:
+      - name: collabdocs-be
+        image: ved104/collabdocsapp-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: collabdocs-secrets
+              key: db_url
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: collabdocs-be
+spec:
+  type: ClusterIP
+  selector:
+    app: collabdocs-be
+  ports:
+  - port: 8080
+    targetPort: 8080

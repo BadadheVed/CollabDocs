@@ -4,7 +4,7 @@
 
 ---
 
-## 📝 Real-Time Collaborative Document Editor
+## 📝 Real-Time Collaborative Editor
 
 CollabDocs is a seamless, real-time collaborative document editor designed for easy document creation, sharing, and teamwork — entirely without user accounts. Experience instant collaboration powered by the latest web technologies, including Next.js, Hocuspocus, Y.js, and PostgreSQL. The simple UI, fast performance, and PDF integration make it the perfect tool for sharing ideas and working together.
 
