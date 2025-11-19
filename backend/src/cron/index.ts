@@ -5,7 +5,7 @@ import WebSocket from "ws";
 const CRON_HTTP_URL =
   process.env.CRON_HTTP_URL || "http://localhost:8080/cron/cleanup";
 const CRON_WS_URL = process.env.CRON_WS_URL || "ws://localhost:1234";
-const WS_TIMEOUT_MS = 5000;
+const WS_TIMEOUT_MS = 500000;
 
 function runWssCheck(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -53,9 +53,9 @@ function runWssCheck(): Promise<boolean> {
   });
 }
 
-export const cronJob = cron.schedule("*/10 * * * *", async () => {
+export const cronJob = cron.schedule("*/5 * * * *", async () => {
   console.log(
-    `\n--- Running 10-Minute Monitoring Job (${new Date().toLocaleTimeString()}) ---`
+    `\n--- Running 5-Minute Monitoring Job (${new Date().toLocaleTimeString()}) ---`
   );
   let httpSuccess = false;
   let wsSuccess = false;

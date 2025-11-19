@@ -1,6 +1,7 @@
 import React from "react";
 import Script from "next/script";
 import ToasterProvider from "@/components/ToasterProvider";
+import KeepAliveProvider from "@/components/KeepAliveProvider";
 
 export default function RootLayout({
   children,
@@ -28,6 +29,7 @@ export default function RootLayout({
         `}</Script>
       </head>
       <body className="bg-white text-gray-900 min-h-screen antialiased">
+        <KeepAliveProvider />
         {children}
         <ToasterProvider />
       </body>
