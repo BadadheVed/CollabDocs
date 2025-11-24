@@ -30,11 +30,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: blog-app-loadbalancer
+  name: CollabDocs-LoadBalancer
 spec:
   type: LoadBalancer
   selector:
-    app: blog-app
+    app: collabdocs-fe
   ports:
-  - port: 8080
-    targetPort: 8080
+  - port: 3000
+    targetPort: 3000

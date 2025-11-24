@@ -30,11 +30,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: blog-app-loadbalancer
+  name: collabdocs-ws
 spec:
   type: ClusterIP
   selector:
-    app: blog-app
+    app: collabdocs-ws
   ports:
-  - port: 8080
-    targetPort: 8080
+  - port: 1234
+    targetPort: 1234
