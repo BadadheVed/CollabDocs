@@ -17,7 +17,11 @@ export const validateJoinAccess = async (docId: number, pin: number) => {
   } catch (error: any) {
     console.error(
       "❌ Backend join validation failed:",
-      error.response?.data || error.message
+      error.response?.data || error.response?.status || error.message
+    );
+    console.error(
+      "Full error:",
+      JSON.stringify(error.toJSON?.() || error, null, 2)
     );
     return null;
   }

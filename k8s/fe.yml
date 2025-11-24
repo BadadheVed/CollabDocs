@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabdocs-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: collabdocs-fe
+  template:
+    metadata:
+      labels:
+        app: collabdocs-fe
+    spec:
+      containers:
+      - name: collabdocs-fe
+        image: ved104/ved104/collabdocsapp-frontend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: collabdocs-secrets
+              key: db_url
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: CollabDocs-LoadBalancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: collabdocs-fe
+  ports:
+  - port: 3000
+    targetPort: 3000

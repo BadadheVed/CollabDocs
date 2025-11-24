@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabdocs-ws
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: collabdocs-ws
+  template:
+    metadata:
+      labels:
+        app: collabdocs-ws
+    spec:
+      containers:
+      - name: collabdocs-ws
+        image: ved104/collabdocsapp-hocuspocus:latest
+        ports:
+        - containerPort: 1234
+        env:
+        
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: collabdocs-secrets
+              key: db_url
+
+--- 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: collabdocs-ws
+spec:
+  type: ClusterIP
+  selector:
+    app: collabdocs-ws
+  ports:
+  - port: 1234
+    targetPort: 1234
