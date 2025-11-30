@@ -1,0 +1,12 @@
+{
+  "name": "ws-proxy",
+  "version": "1.0.0",
+  "description": "WebSocket proxy for Kubernetes ClusterIP services",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

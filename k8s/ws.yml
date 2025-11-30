@@ -24,6 +24,15 @@ spec:
             secretKeyRef:
               name: collabdocs-secrets
               key: db_url
+        - name: PORT
+          value: "1234"
+        - name: BACKEND_URL
+          value: "http://collabdocs-be:8080"
+        resources: 
+          limits: 
+            cpu: "1500m"
+          requests:
+            cpu: "1000m"
 
 --- 
 
