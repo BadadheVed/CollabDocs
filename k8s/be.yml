@@ -24,6 +24,12 @@ spec:
             secretKeyRef:
               name: collabdocs-secrets
               key: db_url
+        - name: JWT_SECRET
+          value: "1234"
+        - name: FRONTEND_URL
+          value: "http://collabdocs-loadbalancer:3000"
+        - name: WS_URL
+          value: "http://collabdocs-ws:1234"
 
 --- 
 
@@ -38,3 +44,5 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
+
+

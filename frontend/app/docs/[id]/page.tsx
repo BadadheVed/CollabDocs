@@ -4,6 +4,19 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import CollaborativeEditor from "@/components/CollaborativeEditor";
 import type { User } from "@/types/editor.types";
 
+// Polyfill for crypto.randomUUID in case it's not available
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4 generation
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function DocPage() {
   const params = useParams();
   const router = useRouter();
@@ -25,7 +38,7 @@ export default function DocPage() {
 
     // Create a user object with the provided credentials
     const userCredentials: User = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       username: name,
       email: "", // Not required for this flow
       token: `${docId}:${pin}:${name}`, // Encode credentials in token format

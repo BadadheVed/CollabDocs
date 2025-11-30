@@ -11,6 +11,14 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build arguments for NEXT_PUBLIC_ environment variables
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXT_PUBLIC_WS_URL
+
+# Set as environment variables for the build
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

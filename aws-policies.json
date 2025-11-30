@@ -1,0 +1,24 @@
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "eks:*",
+                "ec2:*",
+                "cloudformation:*",
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "iam:CreateServiceLinkedRole",
+                "iam:GetRole",
+                "iam:ListAttachedRolePolicies",
+                "iam:CreateRole",
+                "iam:AttachRolePolicy",
+                "iam:PassRole",
+                "iam:PutRolePolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

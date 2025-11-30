@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: Database
+  name: database
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: Database
+      app: database
   template:
     metadata:
       labels:
-        app: Database
+        app: database
     spec:
       containers:
       - name: postgres
@@ -21,17 +21,17 @@ spec:
         - name: POSTGRES_USER
           valueFrom:
             configMapKeyRef:
-              name: CollabDocs-Config
+              name: collabdocs-config
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             configMapKeyRef:
-              name: CollabDocs-Config
+              name: collabdocs-config
               key: POSTGRES_PASSWORD
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: CollabDocs-Config
+              name: collabdocs-config
               key: POSTGRES_DB
         volumeMounts:
         - name: postgres-data
@@ -45,11 +45,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres
+  name: database
 spec:
   type: ClusterIP
   selector:
-    app: postgres
+    app: database
   ports:
   - port: 5432
     targetPort: 5432
