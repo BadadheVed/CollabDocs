@@ -2,7 +2,7 @@ import { Server } from "@hocuspocus/server";
 import * as Y from "yjs";
 import chalk from "chalk";
 import dotenv from "dotenv";
-import { validateJoinAccess } from "./auth";
+import { validateJoinAccess, validateToken } from "./auth";
 
 dotenv.config();
 
@@ -41,19 +41,44 @@ const server = new Server({
 
   async onAuthenticate(data) {
     const roomUUID = data.documentName;
+    const token = data.requestParameters.get("token");
     const docId = data.requestParameters.get("docId");
     const pin = data.requestParameters.get("pin");
     const name = data.requestParameters.get("name");
 
     console.log(chalk.yellow("🔍 Auth attempt:"), {
+      hasToken: !!token,
       docId,
       pin,
       name,
       roomUUID,
     });
 
-    logEvent("auth_attempt", { docId, pin, name, roomUUID });
+    logEvent("auth_attempt", { hasToken: !!token, docId, pin, name, roomUUID });
 
+    // If token is provided, validate it first
+    if (token) {
+      const tokenValidation = await validateToken(token);
+
+      if (tokenValidation && tokenValidation.id === roomUUID) {
+        console.log(
+          chalk.green("✅ Auth success via token:"),
+          chalk.cyan(name || "User"),
+          chalk.gray(`room=${roomUUID}`)
+        );
+
+        logEvent("auth_success", { method: "token", name, roomUUID });
+
+        data.context.user = { name: name || "User", token };
+        return { user: { name: name || "User" } };
+      } else {
+        console.log(chalk.red("❌ Invalid or mismatched token"));
+        logEvent("auth_failed", { reason: "invalid_token" });
+        throw new Error("Unauthorized - Invalid token");
+      }
+    }
+
+    // Fallback to docId/pin authentication
     if (!docId || !pin || !name) {
       console.log(chalk.red("❌ Missing docId, pin, or name"));
       logEvent("auth_failed", { reason: "missing_params", docId, pin, name });
@@ -71,14 +96,14 @@ const server = new Server({
     }
 
     console.log(
-      chalk.green("✅ Auth success:"),
+      chalk.green("✅ Auth success via credentials:"),
       chalk.cyan(name),
       chalk.gray(`room=${roomUUID}`)
     );
 
-    logEvent("auth_success", { name, roomUUID, docId });
+    logEvent("auth_success", { method: "credentials", name, roomUUID, docId });
 
-    data.context.user = { name };
+    data.context.user = { name, token: document.token };
     return { user: { name } };
   },
 

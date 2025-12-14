@@ -486,6 +486,8 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const wordInputRef = useRef<HTMLInputElement>(null);
   const [showPdfBetaDialog, setShowPdfBetaDialog] = useState(false);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -547,6 +549,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
         url: wsUrl,
         name: documentId, // This is the UUID for the WebSocket room
         document: ydoc,
+        token: user?.token, // Pass JWT token for authentication
         onConnect: () => {
           console.log("✅ Connected to Hocuspocus server");
           setIsProviderReady(true);
@@ -881,6 +884,36 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     wordInputRef.current?.click();
   };
 
+  // Save document function
+  const handleSaveDocument = async () => {
+    if (!editor || !user?.token) return;
+
+    try {
+      setIsSaving(true);
+      const content = editor.getHTML();
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+
+      const response = await axios.post(`${backendUrl}/docs/save`, {
+        token: user.token,
+        content,
+      });
+
+      if (response.status === 200) {
+        setSaveSuccess(true);
+        toast.success("Document saved successfully!");
+
+        // Hide success indicator after 2 seconds
+        setTimeout(() => setSaveSuccess(false), 2000);
+      }
+    } catch (error: any) {
+      console.error("Save error:", error);
+      toast.error(error.response?.data?.message || "Failed to save document");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const statusColor = {
     connecting: "bg-yellow-400",
     connected: "bg-green-400",
@@ -1009,6 +1042,28 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           >
             <FileDown className="h-4 w-4" />
             {isExportingWord ? "Exporting..." : "Export Word"}
+          </Button>
+
+          {/* Save Document Button */}
+          <Button
+            variant={saveSuccess ? "default" : "outline"}
+            size="sm"
+            onClick={handleSaveDocument}
+            disabled={isSaving || !editor || !user?.token}
+            className={`gap-2 ${
+              saveSuccess ? "bg-green-500 hover:bg-green-600" : ""
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                Saving...
+              </>
+            ) : saveSuccess ? (
+              <>✓ Saved</>
+            ) : (
+              <>💾 Save</>
+            )}
           </Button>
 
           {/* Connection Status Badge */}
