@@ -18,13 +18,16 @@ app.use(
 
 app.use(express.json());
 app.use(metricsMiddleware);
+
 // Health check endpoint
 cronJob.start();
+client.collectDefaultMetrics();
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 app.get("/metrics", async (req, res) => {
   const metrics = await client.register.metrics();
+
   res.set("Content-Type", client.register.contentType);
   res.end(metrics);
 });
