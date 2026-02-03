@@ -4,7 +4,7 @@ import ToasterProvider from "@/components/ToasterProvider";
 import KeepAliveProvider from "@/components/KeepAliveProvider";
 
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://collabdocs.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://collabdocs.in'),
   title: {
     default: 'CollabDocs | Real-Time Collaborative Document Editor',
     template: '%s | CollabDocs'
@@ -49,7 +49,7 @@ export const metadata = {
   },
   verification: {
     // Add your Google Search Console verification code here
-    google: 'YOUR_GOOGLE_VERIFICATION_CODE',
+    google: '6i5UnFCzTyG64zP6X9pf2qMbA1Pv8MgFFKmYAIlpo5A',
   },
   alternates: {
     canonical: '/',
@@ -97,18 +97,18 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        
+
         {/* Structured Data */}
         <Script
           id="structured-data"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
-        
-        {/* Google Analytics - Replace with your GA4 measurement ID */}
+
+        {/* Google Analytics */}
         <Script
           strategy="afterInteractive"
-          src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"
+          src="https://www.googletagmanager.com/gtag/js?id=G-HE97TECZ1T"
         />
         <Script
           id="google-analytics"
@@ -118,11 +118,11 @@ export default function RootLayout({
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', 'G-XXXXXXXXXX');
+              gtag('config', 'G-HE97TECZ1T');
             `,
           }}
         />
-        
+
         <Script
           src="https://cdn.tailwindcss.com"
           strategy="beforeInteractive"
