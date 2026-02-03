@@ -20,7 +20,7 @@ import {
   EyeOff,
   Loader2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { api } from "@/lib/api";
 import { DocumentCreatedModal } from "@/components/DocumentCreatedModal";
 import { toast } from "sonner";
@@ -39,9 +39,8 @@ export default function Home() {
   } | null>(null);
 
   // Join document states
-  const [showJoinForm, setShowJoinForm] = useState(false);
   const [joinStep, setJoinStep] = useState<"credentials" | "name">(
-    "credentials"
+    "credentials",
   );
   const [docId, setDocId] = useState("");
   const [pin, setPin] = useState("");
@@ -53,25 +52,7 @@ export default function Home() {
     title: string;
   } | null>(null);
 
-  // Mobile detection
-  const [isMobile, setIsMobile] = useState(false);
-
   const router = useRouter();
-
-  // Detect mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) {
-        setShowJoinForm(true);
-      }
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   const handleCreateDocument = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +105,7 @@ export default function Home() {
     try {
       const response = await api.validateCredentials(
         parseInt(docId),
-        parseInt(pin)
+        parseInt(pin),
       );
       setDocumentInfo({
         id: response.id,
@@ -152,15 +133,12 @@ export default function Home() {
       router.push(
         `/docs/${
           documentInfo.id
-        }?docId=${docId}&pin=${pin}&name=${encodeURIComponent(name)}`
+        }?docId=${docId}&pin=${pin}&name=${encodeURIComponent(name)}`,
       );
     }
   };
 
   const resetJoinForm = () => {
-    if (!isMobile) {
-      setShowJoinForm(false);
-    }
     setJoinStep("credentials");
     setDocId("");
     setPin("");
@@ -212,7 +190,7 @@ export default function Home() {
             className="grid gap-6 md:gap-8 md:grid-cols-2 mb-16"
           >
             {/* Create Document Card */}
-            <Card className="text-left">
+            <Card className="text-left self-start min-h-[340px]">
               <CardHeader>
                 <CardTitle>Create New Document</CardTitle>
                 <CardDescription>
@@ -221,21 +199,29 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleCreateDocument} className="space-y-4">
-                  <Input
-                    placeholder="Enter your name..."
-                    value={creatorName}
-                    onChange={(e) => setCreatorName(e.target.value)}
-                    disabled={isCreating}
-                  />
-                  <Input
-                    placeholder="Enter document title..."
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={isCreating}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Your Name</label>
+                    <Input
+                      placeholder="Enter your name..."
+                      value={creatorName}
+                      onChange={(e) => setCreatorName(e.target.value)}
+                      disabled={isCreating}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Document Title
+                    </label>
+                    <Input
+                      placeholder="Enter document title..."
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      disabled={isCreating}
+                    />
+                  </div>
                   <Button
                     type="submit"
-                    className="w-full"
+                    className="w-full mt-4"
                     disabled={isCreating}
                   >
                     {isCreating ? (
@@ -252,7 +238,7 @@ export default function Home() {
             </Card>
 
             {/* Join Document Card */}
-            <Card className="text-left">
+            <Card className="text-left self-start min-h-[340px]">
               <CardHeader>
                 <CardTitle>Join Existing Document</CardTitle>
                 <CardDescription>
@@ -261,27 +247,10 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <AnimatePresence mode="wait">
-                  {!showJoinForm && !isMobile ? (
-                    <motion.div
-                      key="join-button"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <Button
-                        onClick={() => setShowJoinForm(true)}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        Join Document
-                      </Button>
-                    </motion.div>
-                  ) : joinStep === "credentials" ? (
+                  {joinStep === "credentials" ? (
                     <motion.form
                       key="credentials-form"
-                      initial={
-                        isMobile ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }
-                      }
+                      initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -358,17 +327,6 @@ export default function Home() {
                             "Continue"
                           )}
                         </Button>
-                        {!isMobile && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={resetJoinForm}
-                            className="w-full"
-                          >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Cancel
-                          </Button>
-                        )}
                       </div>
                     </motion.form>
                   ) : (
