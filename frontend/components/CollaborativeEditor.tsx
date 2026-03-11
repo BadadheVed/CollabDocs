@@ -488,6 +488,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isContentDirty, setIsContentDirty] = useState(false);
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -495,20 +496,12 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   useEffect(() => {
     const fetchDocumentTitle = async () => {
       if (!user?.token) return;
-
-      const tokenParts = user.token.split(":");
-      if (tokenParts.length !== 3) return;
-
-      const [docId, pin] = tokenParts;
       const API_BASE_URL =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
-
       try {
-        const response = await axios.post(`${API_BASE_URL}/docs/join`, {
-          docId: parseInt(docId),
-          pin: parseInt(pin),
+        const response = await axios.post(`${API_BASE_URL}/docs/verify-token`, {
+          token: user.token,
         });
-        console.log("got the resposnse as the ", response.data.title);
         if (response.data.title) {
           setDocumentTitle(response.data.title);
         }
@@ -526,23 +519,11 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       return;
     }
 
-    // Parse credentials from token (format: "docId:pin:name")
-    const tokenParts = user.token.split(":");
-    if (tokenParts.length !== 3) {
-      console.error("Invalid token format");
-      return;
-    }
-
-    const [docId, pin, name] = tokenParts;
+    const name = user.username || "User";
     let wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:1234";
-
-    // Add query parameters to WebSocket URL
-    wsUrl = `${wsUrl}?docId=${docId}&pin=${pin}&name=${encodeURIComponent(
-      name
-    )}`;
+    wsUrl = `${wsUrl}?name=${encodeURIComponent(name)}`;
 
     console.log("🔌 Initializing WebSocket connection to:", wsUrl);
-    console.log("📋 Credentials:", { docId, pin, name });
 
     try {
       const newProvider = new HocuspocusProvider({
@@ -689,8 +670,12 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
             "prose prose-gray max-w-none min-h-[60vh] focus:outline-none p-4",
         },
       },
+      immediatelyRender: false,
+      onUpdate: () => {
+        setIsContentDirty(true);
+      },
     },
-    [provider, isProviderReady]
+    [provider, isProviderReady],
   );
   useEffect(() => {
     return () => {
@@ -700,9 +685,43 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     };
   }, []);
 
+  // Auto-save every 30 seconds — only fires if content has changed
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isContentDirty) {
+        handleSaveDocument();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isContentDirty, editor, user?.token]);
+
+  // Load document content from S3 once the editor and WebSocket are ready
+  useEffect(() => {
+    if (!isProviderReady || !editor || !user?.token) return;
+
+    const loadFromS3 = async () => {
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+      try {
+        const loadResp = await axios.post(`${API_BASE_URL}/docs/load`, {
+          token: user.token,
+        });
+        if (loadResp.data.content) {
+          editor.commands.setContent(loadResp.data.content);
+          setIsContentDirty(false);
+          toast.info("Document loaded from cloud storage.");
+        }
+      } catch (error) {
+        console.error("Failed to load document from S3:", error);
+      }
+    };
+
+    loadFromS3();
+  }, [isProviderReady]); // Runs once when editor + WebSocket are both ready
+
   // PDF Import Handler
   const handleImportPDF = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -721,7 +740,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       if (editor) {
         editor.commands.setContent(htmlContent);
         toast.success(
-          "PDF imported successfully! (Text only - full support coming soon)"
+          "PDF imported successfully! (Text only - full support coming soon)",
         );
       }
     } catch (error: any) {
@@ -819,7 +838,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
 
   // Word Import Handler
   const handleImportWord = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -887,6 +906,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   // Save document function
   const handleSaveDocument = async () => {
     if (!editor || !user?.token) return;
+    if (!isContentDirty) return; // Skip if nothing has changed
 
     try {
       setIsSaving(true);
@@ -900,6 +920,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       });
 
       if (response.status === 200) {
+        setIsContentDirty(false); // Mark as clean after successful save
         setSaveSuccess(true);
         toast.success("Document saved successfully!");
 
@@ -961,8 +982,8 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
                 {status === "connected"
                   ? "✓ You are Connected to WebSocket server"
                   : status === "connecting"
-                  ? "⏳ Connecting to WebSocket..."
-                  : "✗ Disconnected from WebSocket"}
+                    ? "⏳ Connecting to WebSocket..."
+                    : "✗ Disconnected from WebSocket"}
               </span>
               <span className="text-sm text-gray-600">
                 <span className="text-gray-900 font-medium">{userCount}</span>{" "}
@@ -1049,7 +1070,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
             variant={saveSuccess ? "default" : "outline"}
             size="sm"
             onClick={handleSaveDocument}
-            disabled={isSaving || !editor || !user?.token}
+            disabled={isSaving || !editor || !user?.token || !isContentDirty}
             className={`gap-2 ${
               saveSuccess ? "bg-green-500 hover:bg-green-600" : ""
             }`}
@@ -1061,8 +1082,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
               </>
             ) : saveSuccess ? (
               <>✓ Saved</>
+            ) : isContentDirty ? (
+              <>Save</>
             ) : (
-              <>💾 Save</>
+              <>✓ Up to date</>
             )}
           </Button>
 

@@ -42,7 +42,8 @@ const server = new Server({
 
   async onAuthenticate(data) {
     const roomUUID = data.documentName;
-    const token = data.requestParameters.get("token");
+    // data.token is sent securely via the Hocuspocus auth message (not URL)
+    const token = data.token || data.requestParameters.get("token");
     const docId = data.requestParameters.get("docId");
     const pin = data.requestParameters.get("pin");
     const name = data.requestParameters.get("name");

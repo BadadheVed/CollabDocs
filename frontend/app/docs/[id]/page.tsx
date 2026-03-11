@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import CollaborativeEditor from "@/components/CollaborativeEditor";
 import type { User } from "@/types/editor.types";
 import axios from "axios";
+import { getTokenFromCookie, addSessionToCookie } from "@/lib/sessions";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
@@ -33,8 +34,8 @@ export default function DocPage() {
   useEffect(() => {
     const initializeDocument = async () => {
       try {
-        // Check if token exists in localStorage
-        const storedToken = localStorage.getItem(`doc_token_${idParam}`);
+        // Check if token exists in cookie
+        const storedToken = idParam ? getTokenFromCookie(idParam) : null;
 
         if (storedToken) {
           // Verify token with backend
@@ -47,7 +48,6 @@ export default function DocPage() {
             );
 
             if (response.data.id === idParam) {
-              // Token is valid, create user with token
               const userCredentials: User = {
                 id: generateUUID(),
                 username: "User",
@@ -61,7 +61,7 @@ export default function DocPage() {
             }
           } catch (tokenError) {
             console.log("Stored token invalid, requiring credentials");
-            localStorage.removeItem(`doc_token_${idParam}`);
+            // Cookie will expire naturally — no manual removal needed
           }
         }
 
@@ -79,11 +79,17 @@ export default function DocPage() {
         const response = await axios.post(`${BACKEND_URL}/docs/join`, {
           docId: Number(docId),
           pin: Number(pin),
+          name,
         });
 
         if (response.data.token && response.data.id === idParam) {
-          // Store token for future access
-          localStorage.setItem(`doc_token_${idParam}`, response.data.token);
+          // Store token in cookie for future access and recent-docs tracking
+          addSessionToCookie({
+            documentId: idParam,
+            token: response.data.token,
+            title: response.data.title,
+            docId: Number(docId),
+          });
 
           const userCredentials: User = {
             id: generateUUID(),
