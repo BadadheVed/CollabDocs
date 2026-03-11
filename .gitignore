@@ -11,7 +11,7 @@ build/
 out/
 tmp/
 temp/
-
+aws*
 # TypeScript cache and logs
 *.tsbuildinfo
 *.log
