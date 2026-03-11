@@ -3,7 +3,14 @@ import prisma from "@/client/db";
 import { generateRoomCode, generatePin } from "@/utils/codes";
 import jwt from "jsonwebtoken";
 import { generateS3Key, uploadToS3, downloadFromS3 } from "@/utils/s3";
-import { getCachedContent, setCachedContent, addDocParticipant, getDocParticipants, setDocToken } from "@/utils/redis";
+import {
+  getCachedContent,
+  setCachedContent,
+  addDocParticipant,
+  getDocParticipants,
+  setDocToken,
+} from "@/utils/redis";
+import { checkPrime } from "crypto";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -47,7 +54,7 @@ export const createDocument = async (req: Request, res: Response) => {
         title: document.title,
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     await setDocToken(document.id, token);
@@ -69,7 +76,11 @@ export const createDocument = async (req: Request, res: Response) => {
 
 export const joinDocument = async (req: Request, res: Response) => {
   try {
-    const { docId, pin, name } = req.body as { docId: number; pin: number; name?: string };
+    const { docId, pin, name } = req.body as {
+      docId: number;
+      pin: number;
+      name?: string;
+    };
 
     if (!docId || !pin) {
       return res.status(400).json({ message: "Missing document ID or pin" });
@@ -93,7 +104,7 @@ export const joinDocument = async (req: Request, res: Response) => {
         title: document.title,
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     await setDocToken(document.id, token);
@@ -204,7 +215,7 @@ export const loadDocument = async (req: Request, res: Response) => {
 
       // 1. Redis cache hit — fastest path
       const cached = await getCachedContent(decoded.documentId);
-      if (cached) {
+      if (cached && cached.length > 0) {
         return res.status(200).json({ source: "redis", content: cached });
       }
 
