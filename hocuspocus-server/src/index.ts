@@ -2,8 +2,9 @@ import { Server } from "@hocuspocus/server";
 import * as Y from "yjs";
 import chalk from "chalk";
 import dotenv from "dotenv";
-import { validateJoinAccess } from "./auth";
-
+import { validateJoinAccess, validateToken } from "./auth";
+import { activeWsConnections } from "./middleware/index";
+import { register } from "./middleware/index";
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 1234);
@@ -41,19 +42,45 @@ const server = new Server({
 
   async onAuthenticate(data) {
     const roomUUID = data.documentName;
+    // data.token is sent securely via the Hocuspocus auth message (not URL)
+    const token = data.token || data.requestParameters.get("token");
     const docId = data.requestParameters.get("docId");
     const pin = data.requestParameters.get("pin");
     const name = data.requestParameters.get("name");
 
     console.log(chalk.yellow("🔍 Auth attempt:"), {
+      hasToken: !!token,
       docId,
       pin,
       name,
       roomUUID,
     });
 
-    logEvent("auth_attempt", { docId, pin, name, roomUUID });
+    logEvent("auth_attempt", { hasToken: !!token, docId, pin, name, roomUUID });
 
+    // If token is provided, validate it first
+    if (token) {
+      const tokenValidation = await validateToken(token);
+
+      if (tokenValidation && tokenValidation.id === roomUUID) {
+        console.log(
+          chalk.green("✅ Auth success via token:"),
+          chalk.cyan(name || "User"),
+          chalk.gray(`room=${roomUUID}`)
+        );
+
+        logEvent("auth_success", { method: "token", name, roomUUID });
+
+        data.context.user = { name: name || "User", token };
+        return { user: { name: name || "User" } };
+      } else {
+        console.log(chalk.red("❌ Invalid or mismatched token"));
+        logEvent("auth_failed", { reason: "invalid_token" });
+        throw new Error("Unauthorized - Invalid token");
+      }
+    }
+
+    // Fallback to docId/pin authentication
     if (!docId || !pin || !name) {
       console.log(chalk.red("❌ Missing docId, pin, or name"));
       logEvent("auth_failed", { reason: "missing_params", docId, pin, name });
@@ -71,18 +98,19 @@ const server = new Server({
     }
 
     console.log(
-      chalk.green("✅ Auth success:"),
+      chalk.green("✅ Auth success via credentials:"),
       chalk.cyan(name),
       chalk.gray(`room=${roomUUID}`)
     );
 
-    logEvent("auth_success", { name, roomUUID, docId });
+    logEvent("auth_success", { method: "credentials", name, roomUUID, docId });
 
-    data.context.user = { name };
+    data.context.user = { name, token: document.token };
     return { user: { name } };
   },
 
   async onConnect({ documentName, context, socketId }) {
+    //  activeWsConnections.inc();
     if (!roomConnections.has(documentName)) {
       roomConnections.set(documentName, new Set());
     }
@@ -126,6 +154,7 @@ const server = new Server({
       socketId,
       userCount,
     });
+    //  activeWsConnections.dec();
   },
 
   async onLoadDocument({ documentName }) {
@@ -135,20 +164,30 @@ const server = new Server({
   },
 
   async onRequest({ request, response }) {
-    // Enable CORS
-    response.setHeader("Access-Control-Allow-Origin", "*");
-    response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    // Check if this is a WebSocket upgrade request FIRST
+    const upgradeHeader = request.headers["upgrade"];
+    if (upgradeHeader && upgradeHeader.toLowerCase() === "websocket") {
+      // Let Hocuspocus handle WebSocket upgrade - don't touch headers
+      return;
+    }
 
+    // Handle OPTIONS preflight for CORS
     if (request.method === "OPTIONS") {
-      response.writeHead(200);
+      response.writeHead(200, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
       response.end();
-      return { status: "handled" };
+      return;
     }
 
     // WebSocket connection logs - for debugging WS connections
     if (request.url === "/ws-logs" && request.method === "GET") {
-      response.writeHead(200, { "Content-Type": "application/json" });
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
       response.end(
         JSON.stringify(
           {
@@ -167,23 +206,48 @@ const server = new Server({
           2
         )
       );
-      return { status: "handled" };
+      return;
+    }
+
+    // Health check endpoint
+    if (request.url === "/health" && request.method === "GET") {
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      response.end(
+        JSON.stringify({
+          status: "ok",
+          timestamp: new Date().toISOString(),
+          uptime: process.uptime(),
+          activeRooms: roomConnections.size,
+          totalConnections: Array.from(roomConnections.values()).reduce(
+            (sum, set) => sum + set.size,
+            0
+          ),
+        })
+      );
+      return;
     }
 
     // Get room user count: /room/{uuid}
     if (request.url?.startsWith("/room/") && request.method === "GET") {
       const roomId = request.url.split("/room/")[1]?.split("?")[0];
-
       if (!roomId) {
-        response.writeHead(400, { "Content-Type": "application/json" });
+        response.writeHead(400, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
         response.end(JSON.stringify({ error: "Room ID required" }));
-        return { status: "handled" };
+        return;
       }
 
       try {
         const userCount = roomConnections.get(roomId)?.size || 0;
-
-        response.writeHead(200, { "Content-Type": "application/json" });
+        response.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
         response.end(
           JSON.stringify({
             roomId,
@@ -196,34 +260,68 @@ const server = new Server({
         );
       } catch (error) {
         console.error("Error getting user count:", error);
-        response.writeHead(500, { "Content-Type": "application/json" });
+        response.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
         response.end(JSON.stringify({ error: "Internal server error" }));
       }
-      return { status: "handled" };
+      return;
+    }
+
+    // Metrics endpoint - Prometheus format
+    if (request.url === "/metrics" && request.method === "GET") {
+      try {
+        const metrics = await register.metrics();
+        response.writeHead(200, {
+          "Content-Type": register.contentType,
+          "Access-Control-Allow-Origin": "*",
+        });
+        response.end(metrics);
+      } catch (error) {
+        console.error("Error getting metrics:", error);
+        response.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        response.end(JSON.stringify({ error: "Internal server error" }));
+      }
+      return;
     }
 
     // Get all active rooms
     if (request.url === "/rooms" && request.method === "GET") {
-      const rooms = Array.from(roomConnections.entries()).map(
-        ([roomId, connections]) => ({
-          roomId,
-          userCount: connections.size,
-        })
-      );
-
-      response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(
-        JSON.stringify({
-          totalRooms: rooms.length,
-          rooms,
-          timestamp: Date.now(),
-        })
-      );
-      return { status: "handled" };
+      try {
+        const rooms = Array.from(roomConnections.entries()).map(
+          ([roomId, connections]) => ({
+            roomId,
+            userCount: connections.size,
+          })
+        );
+        response.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        response.end(
+          JSON.stringify({
+            totalRooms: rooms.length,
+            rooms,
+            timestamp: Date.now(),
+          })
+        );
+      } catch (error) {
+        console.error("Error getting rooms:", error);
+        response.writeHead(500, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        response.end(JSON.stringify({ error: "Internal server error" }));
+      }
+      return;
     }
 
-    // If it's not one of our endpoints, let Hocuspocus handle it (WebSocket upgrade)
-    // Don't send 404 here, just return undefined to pass control to Hocuspocus
+    // If it's not one of our endpoints, let Hocuspocus handle it
+    // This is important for WebSocket upgrade requests
     return;
   },
 });
@@ -231,9 +329,10 @@ const server = new Server({
 server.listen().then(() => {
   console.log(chalk.green(`✅ WebSocket server running on port ${PORT}`));
   console.log(chalk.cyan(`   ws://localhost:${PORT}`));
-  console.log(
-    chalk.gray(`   
-Debug endpoint:
-   - GET /ws-logs (view connection logs)`)
-  );
+  console.log(chalk.gray(`\n📊 Debug Endpoints:`));
+  console.log(chalk.gray(`   - GET /health (health check)`));
+  console.log(chalk.gray(`   - GET /ws-logs (connection logs)`));
+  console.log(chalk.gray(`   - GET /rooms (all active rooms)`));
+  console.log(chalk.gray(`   - GET /room/{uuid} (specific room user count)`));
+  console.log(chalk.gray(`   - GET /metrics (Prometheus metrics)\n`));
 });

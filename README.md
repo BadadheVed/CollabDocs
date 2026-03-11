@@ -1,144 +1,166 @@
-# Collaborative Document Editor
+# [CollabDocs](https://collabdocs-site.vercel.app/)
 
-A real-time collaborative document editor built with Next.js, Express.js, and WebSockets using Hocuspocus.
+![Landing Page](assets/landing.png)
 
-## Architecture
+---
 
-- **Frontend**: Next.js with TipTap editor for rich text editing
-- **Backend**: Express.js API server for document management
-- **WebSocket Server**: Hocuspocus server for real-time collaboration
-- **Database**: PostgreSQL with Prisma ORM
+## 📝 Real-Time Collaborative Editor
 
-## Flow
+CollabDocs is a seamless, real-time collaborative document editor designed for easy document creation, sharing, and teamwork — entirely without user accounts. Experience instant collaboration powered by the latest web technologies, including Next.js, Hocuspocus, Y.js, and PostgreSQL. The simple UI, fast performance, and PDF integration make it the perfect tool for sharing ideas and working together.
 
-1. User creates a document → Gets 9-digit `docId` and 4-digit `pin`
-2. Creator or other users join using `docId` and `pin`
-3. Backend validates credentials and returns document UUID
-4. Users join WebSocket room using the document UUID for real-time collaboration
+---
 
-## Setup Instructions
+## 🚀 Features
 
-### Prerequisites
+- **Create documents without login**
+- **Invite collaborators using a 9-digit docId & 4-digit pin**
+- **Collaborate in real-time using Y.js and Hocuspocus**
+- **Import PDFs directly into the editor (pdf.js)**
+- **Export your work as a PDF (html2pdf.js)**
+- **Each document assigned a unique UUID**
+- **Shareable docId for quick access**
+- **Name storage is temporary and client-side only**
+- **Clean, fast, and responsive interface**
+- **Effortless document sharing and joining**
+- **Robust backend validation for secure collaboration**
 
-- Node.js (v18+)
-- PostgreSQL database
-- npm or yarn
+---
 
-### 1. Database Setup
+## ⚒️ Tech Stack
+
+**Backend**
+
+- Node.js
+- Express
+- Prisma
+- PostgreSQL
+- axios
+
+**WebSocket Server**
+
+- Hocuspocus Server
+- Y.js
+- axios (for backend validation)
+
+**Frontend**
+
+- Next.js
+- React
+- Tailwind CSS
+- Tiptap (Yjs editor)
+- pdf.js (PDF import)
+- html2pdf.js (PDF export)
+- axios
+
+---
+
+## ☁️ Deployment
+
+- **Backend & WebSocket**: Hosted on [Render](https://render.com/)
+- **Frontend**: Hosted on [Vercel](https://vercel.com/) or [Render](https://render.com/)
+
+---
+
+## 🔗 Deployment Links
+
+- **Frontend**: [https://collabdocs-site.vercel.app/](https://collabdocs-site.vercel.app/)
+- **Backend & WebSocket**: _[Add deployment URLs here as needed]_
+
+---
+
+## 🛠️ Installation
+
+### 1. Running the Frontend Locally
 
 ```bash
-# Start PostgreSQL and create a database named 'collabdocs'
-createdb collabdocs
-```
+git clone https://github.com/BadadheVed/Simple-Collabrative-Editor.git
+cd Simple-Collabrative-Editor  # adjust path if frontend is in a subfolder
 
-### 2. Backend Setup
-
-```bash
-cd backend
 npm install
-cp .env.example .env
-# Edit .env with your database URL
-npm run db:push  # If you have a db:push script
-# OR run prisma commands directly:
-npx prisma db push
-npx prisma generate
 npm run dev
+# Visit http://localhost:3000
 ```
 
-### 3. WebSocket Server Setup
+### 2. Running the Backend Locally
 
 ```bash
-cd hocuspocus-server
+cd backend  # adjust to your backend folder
+
 npm install
-cp .env.example .env
 npm run dev
+# Default: http://localhost:4000
 ```
 
-### 4. Frontend Setup
+### 3. Running the WebSocket Server Locally
 
 ```bash
-cd frontend
+cd websocket-server  # adjust if separated
+
 npm install
-cp .env.example .env
 npm run dev
+# Default: ws://localhost:8080
 ```
 
-## Usage
+---
 
-1. **Create Document**:
+## 🐳 Docker Setup
 
-   - Visit `http://localhost:3000`
-   - Enter a document title and click "Create Document"
-   - You'll get a 9-digit Document ID and 4-digit PIN
+Run all services with Docker for a fast local development environment.
 
-2. **Join Document**:
-   - Click "Join with Document ID & Pin" or visit `/join`
-   - Enter your name, Document ID, and PIN
-   - Start collaborating in real-time!
+### Build & Start All Services
 
-## API Endpoints
+**Frontend**
 
-### POST /docs/create
-
-Creates a new document
-
-```json
-{
-  "title": "My Document"
-}
+```bash
+docker build -t collabdocs-frontend ./frontend
+docker run -p 3000:3000 collabdocs-frontend
 ```
 
-### POST /docs/join
+**Backend**
 
-Validates document access
-
-```json
-{
-  "docId": 123456789,
-  "pin": 1234
-}
+```bash
+docker build -t collabdocs-backend ./backend
+docker run -p 4000:4000 collabdocs-backend
 ```
 
-## Environment Variables
+**WebSocket Server**
 
-### Backend (.env)
-
-```
-DATABASE_URL="postgresql://username:password@localhost:5432/collabdocs"
-PORT=3001
-FRONTEND_URL="http://localhost:3000"
-BASE_URL="http://localhost:3000"
+```bash
+docker build -t collabdocs-ws ./websocket-server
+docker run -p 8080:8080 collabdocs-ws
 ```
 
-### Frontend (.env.local)
+Or, use `docker-compose` for multi-service orchestration:
 
-```
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_WS_URL=ws://localhost:1234
-```
-
-### WebSocket Server (.env)
-
-```
-PORT=1234
-```
-
-## Database Schema
-
-```prisma
-model Document {
-  id        String   @id @default(uuid()) @db.Uuid
-  title     String   @db.VarChar(255)
-  docId     Int      // 9-digit numeric code
-  pin       Int?     // 4-digit access code
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Content   Json?
-}
+```yaml
+version: "3"
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+  websocket:
+    build: ./websocket-server
+    ports:
+      - "8080:8080"
 ```
 
-## Ports
+```bash
+docker-compose up
+```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- WebSocket Server: ws://localhost:1234
+---
+
+## 💬 Get Started with CollabDocs!
+
+CollabDocs empowers teams, friends, and colleagues to collaborate instantly with security and ease.  
+No sign-up required — just create, share, and work together.  
+Enjoy smooth editing, PDF support, and modern design.
+
+**Feel free to star ⭐️ this project, contribute, and share with the community!**
+
+---

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /docs/*/edit
+
+# Sitemap
+Sitemap: https://collabdocs.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
