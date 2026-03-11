@@ -1,6 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
+
+const RecentDocs = dynamic(() => import("@/components/RecentDocs"), {
+  ssr: false,
+});
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { addSessionToCookie } from "@/lib/sessions";
 import { DocumentCreatedModal } from "@/components/DocumentCreatedModal";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -68,8 +74,14 @@ export default function Home() {
 
     setIsCreating(true);
     try {
-      const docTitle = title; // Store title before clearing
-      const response = await api.createDocument(title);
+      const docTitle = title;
+      const response = await api.createDocument(title, creatorName);
+      addSessionToCookie({
+        documentId: response.id,
+        token: response.token,
+        title: docTitle,
+        docId: response.docId,
+      });
       setCreatedDoc({
         id: response.id,
         docId: response.docId,
@@ -381,7 +393,7 @@ export default function Home() {
               </CardContent>
             </Card>
           </motion.div>
-
+          <RecentDocs />
           {/* Features Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

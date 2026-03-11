@@ -1,0 +1,65 @@
+# Node modules
+node_modules/
+.claude*
+.DS_Store
+.exe
+.dmg
+CLAUDE.md
+# Build output
+dist/
+build/
+out/
+tmp/
+temp/
+
+# TypeScript cache and logs
+*.tsbuildinfo
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod
+.env.dev
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Test / Jest
+jest-cache/
+jest-test-results.json
+
+# Optional: if using Docker
+docker-compose.override.yml
+.docker/
+
+
+.next/
+out/
+
+
+ormconfig.json
+prisma/dev.db
+prisma/migrations/
+
+.turbo/
+.eslintcache
+.prettiercache
