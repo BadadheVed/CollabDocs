@@ -2,13 +2,15 @@ import { Request, Response } from "express";
 import prisma from "@/client/db";
 import { generateRoomCode, generatePin } from "@/utils/codes";
 import jwt from "jsonwebtoken";
+import { generateS3Key, uploadToS3, downloadFromS3 } from "@/utils/s3";
+import { getCachedContent, setCachedContent, addDocParticipant, getDocParticipants, setDocToken } from "@/utils/redis";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
 export const createDocument = async (req: Request, res: Response) => {
   try {
-    const { title } = req.body as { title: string };
+    const { title, name } = req.body as { title: string; name?: string };
 
     if (!title) {
       return res.status(400).json({ message: "Missing title" });
@@ -48,6 +50,9 @@ export const createDocument = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
+    await setDocToken(document.id, token);
+    if (name) await addDocParticipant(document.id, name);
+
     return res.status(201).json({
       message: "Document created successfully",
       id: document.id,
@@ -64,7 +69,7 @@ export const createDocument = async (req: Request, res: Response) => {
 
 export const joinDocument = async (req: Request, res: Response) => {
   try {
-    const { docId, pin } = req.body as { docId: number; pin: number };
+    const { docId, pin, name } = req.body as { docId: number; pin: number; name?: string };
 
     if (!docId || !pin) {
       return res.status(400).json({ message: "Missing document ID or pin" });
@@ -72,7 +77,7 @@ export const joinDocument = async (req: Request, res: Response) => {
 
     const document = await prisma.document.findFirst({
       where: { docId, pin },
-      select: { id: true, title: true },
+      select: { id: true, title: true, s3Path: true },
     });
 
     if (!document) {
@@ -91,11 +96,15 @@ export const joinDocument = async (req: Request, res: Response) => {
       { expiresIn: "7d" }
     );
 
+    await setDocToken(document.id, token);
+    if (name) await addDocParticipant(document.id, name);
+
     return res.status(200).json({
       message: "Document ready to join",
       id: document.id,
       title: document.title,
       token,
+      s3Path: document.s3Path, // null for new docs, key string for saved docs
     });
   } catch (error) {
     console.error("Error joining document:", error);
@@ -150,24 +159,113 @@ export const saveDocument = async (req: Request, res: Response) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      // Update document content
+      // Generate S3 key: <title>-<first-5-chars-of-id>-<ddmm>
+      const s3Key = generateS3Key(decoded.title, decoded.documentId);
+
+      // Upload content JSON to S3
+      await uploadToS3(s3Key, { content });
+
+      // Update DB with content and s3Path
       const document = await prisma.document.update({
         where: { id: decoded.documentId },
-        data: { Content: content },
-        select: { id: true, title: true, updatedAt: true },
+        data: { Content: content, s3Path: s3Key },
+        select: { id: true, title: true, updatedAt: true, s3Path: true },
       });
+
+      // Populate Redis cache so next load is a cache hit (TTL: 7 days)
+      await setCachedContent(decoded.documentId, content);
 
       return res.status(200).json({
         message: "Document saved successfully",
         id: document.id,
         title: document.title,
         savedAt: document.updatedAt,
+        s3Path: document.s3Path,
       });
     } catch (jwtError) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
     console.error("Error saving document:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const loadDocument = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body as { token: string };
+
+    if (!token) {
+      return res.status(400).json({ message: "Missing token" });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+      // 1. Redis cache hit — fastest path
+      const cached = await getCachedContent(decoded.documentId);
+      if (cached) {
+        return res.status(200).json({ source: "redis", content: cached });
+      }
+
+      // 2. Cache miss — check DB for s3Path
+      const document = await prisma.document.findUnique({
+        where: { id: decoded.documentId },
+        select: { id: true, title: true, s3Path: true, Content: true },
+      });
+
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      if (document.s3Path) {
+        // 3. Fetch from S3, then backfill Redis (TTL: 7 days)
+        const s3Data = await downloadFromS3(document.s3Path);
+        if (s3Data) {
+          const content = (s3Data as any).content ?? null;
+          if (content) await setCachedContent(decoded.documentId, content);
+          return res.status(200).json({ source: "s3", content });
+        }
+      }
+
+      // 4. Fallback: DB content (document never saved to S3 yet)
+      return res.status(200).json({ source: "db", content: document.Content });
+    } catch (jwtError) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+  } catch (error) {
+    console.error("Error loading document:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getRecentDocs = async (req: Request, res: Response) => {
+  try {
+    const { tokens } = req.body as { tokens: string[] };
+
+    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
+      return res.status(200).json({ docs: [] });
+    }
+
+    const docs = [];
+    for (const token of tokens) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const participants = await getDocParticipants(decoded.documentId);
+        docs.push({
+          documentId: decoded.documentId,
+          title: decoded.title,
+          docId: decoded.docId,
+          participants,
+        });
+      } catch {
+        // Invalid / expired token — skip
+      }
+    }
+
+    return res.status(200).json({ docs });
+  } catch (error) {
+    console.error("Error fetching recent docs:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
