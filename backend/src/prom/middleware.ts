@@ -2,11 +2,10 @@ import { NextFunction, Request, Response } from "express";
 import { requestCounter } from "./counter";
 import { httpRequestDuration } from "@/prom/counter";
 import client from "prom-client";
-export const metricsMiddleware = async (
 export const metricsMiddleware = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const startTime = Date.now();
   res.on("finish", function () {
@@ -23,7 +22,7 @@ export const metricsMiddleware = (
         route: req.route ? req.route.path : req.path,
         status_code: res.statusCode,
       },
-      duration
+      duration,
     );
   });
   next();
