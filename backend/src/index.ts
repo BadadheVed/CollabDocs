@@ -43,6 +43,11 @@ app.get("/metrics", async (req, res) => {
   res.set("Content-Type", client.register.contentType);
   res.end(metrics);
 });
+app.get("/metrics", async (req, res) => {
+  const metrics = await client.register.metrics();
+  res.set("Content-Type", client.register.contentType);
+  res.end(metrics);
+});
 
 app.use("/docs", docsRouter);
 
