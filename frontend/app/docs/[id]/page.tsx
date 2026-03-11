@@ -85,7 +85,7 @@ export default function DocPage() {
         if (response.data.token && response.data.id === idParam) {
           // Store token in cookie for future access and recent-docs tracking
           addSessionToCookie({
-            documentId: idParam,
+            documentId: idParam!,
             token: response.data.token,
             title: response.data.title,
             docId: Number(docId),
