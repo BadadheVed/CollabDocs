@@ -1,5 +1,6 @@
 import React from "react";
 import Script from "next/script";
+import { Analytics } from '@vercel/analytics/next';
 import ToasterProvider from "@/components/ToasterProvider";
 import KeepAliveProvider from "@/components/KeepAliveProvider";
 
@@ -143,6 +144,7 @@ export default function RootLayout({
         <KeepAliveProvider />
         {children}
         <ToasterProvider />
+        <Analytics />
       </body>
     </html>
   );
