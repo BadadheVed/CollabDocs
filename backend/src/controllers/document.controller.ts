@@ -32,7 +32,6 @@ export const createDocument = async (req: Request, res: Response) => {
         title,
         docId,
         pin,
-        Content: "",
       },
       select: {
         id: true, // UUID (used for WebSocket room)
@@ -179,7 +178,7 @@ export const saveDocument = async (req: Request, res: Response) => {
       // Update DB with content and s3Path
       const document = await prisma.document.update({
         where: { id: decoded.documentId },
-        data: { Content: content, s3Path: s3Key },
+        data: { s3Path: s3Key },
         select: { id: true, title: true, updatedAt: true, s3Path: true },
       });
 
@@ -222,7 +221,7 @@ export const loadDocument = async (req: Request, res: Response) => {
       // 2. Cache miss — check DB for s3Path
       const document = await prisma.document.findUnique({
         where: { id: decoded.documentId },
-        select: { id: true, title: true, s3Path: true, Content: true },
+        select: { id: true, title: true, s3Path: true },
       });
 
       if (!document) {
@@ -239,8 +238,8 @@ export const loadDocument = async (req: Request, res: Response) => {
         }
       }
 
-      // 4. Fallback: DB content (document never saved to S3 yet)
-      return res.status(200).json({ source: "db", content: document.Content });
+      // No content found — document hasn't been saved to S3 yet
+      return res.status(200).json({ source: "none", content: null });
     } catch (jwtError) {
       return res.status(401).json({ message: "Invalid or expired token" });
     }
