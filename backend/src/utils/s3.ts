@@ -29,8 +29,7 @@ export function generateS3Key(title: string, id: string): string {
   const stripped = id.replace(/-/g, "");
   const first5 = stripped.slice(0, 5);
   const last4 = stripped.slice(-4);
-  const currYear = new Date().getFullYear();
-  return `${ENV}/${safeTitle}-${first5}-${last4}-${currYear}`;
+  return `${ENV}/${safeTitle}-${first5}-${last4}`;
 }
 
 /**
