@@ -3,7 +3,9 @@ import cors from "cors";
 import docsRouter from "@/routers/docs";
 import client from "prom-client";
 const app = express();
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+const frontendOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim());
 import { cronJob } from "./cron";
 import { metricsMiddleware } from "@/prom/middleware";
 import redis from "@/utils/redis";
@@ -16,7 +18,7 @@ let s3Status: "connected" | "disconnected" = "disconnected";
 // CORS configuration
 app.use(
   cors({
-    origin: [frontendUrl, "http://localhost:3000"],
+    origin: [...frontendOrigins, "http://localhost:3000"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -78,7 +80,9 @@ const PORT = Number(process.env.PORT || 8080);
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         },
       });
-      await s3.send(new HeadBucketCommand({ Bucket: process.env.AWS_S3_BUCKET! }));
+      await s3.send(
+        new HeadBucketCommand({ Bucket: process.env.AWS_S3_BUCKET! }),
+      );
       s3Status = "connected";
       console.log("✅ S3 connected");
     } catch (err) {
@@ -87,7 +91,7 @@ const PORT = Number(process.env.PORT || 8080);
 
     app.listen(PORT, () => {
       console.log(`🚀 API server running on http://localhost:${PORT}`);
-      console.log(`📡 Frontend URL: ${frontendUrl}`);
+      console.log(`📡 Frontend URLs: ${frontendOrigins.join(", ")}`);
       console.log(`✅ Health check: http://localhost:${PORT}/health`);
     });
   } catch (err) {
