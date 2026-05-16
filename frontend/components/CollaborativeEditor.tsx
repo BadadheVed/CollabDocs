@@ -707,9 +707,19 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           token: user.token,
         });
         if (loadResp.data.content) {
-          editor.commands.setContent(loadResp.data.content);
-          setIsContentDirty(false);
-          toast.info("Document loaded from cloud storage.");
+          // Only load from S3 if editor is truly empty (no meaningful content)
+          // This preserves real-time collaborative changes while allowing saved content to load
+          const currentContent = editor.getJSON();
+          const hasContent = currentContent.content && 
+            currentContent.content.length > 0 && 
+            (currentContent.content.length > 1 || 
+             (currentContent.content[0]?.content && currentContent.content[0].content.length > 0));
+          
+          if (!hasContent) {
+            editor.commands.setContent(loadResp.data.content);
+            setIsContentDirty(false);
+            toast.info("Document loaded from cloud storage.");
+          }
         }
       } catch (error) {
         console.error("Failed to load document from S3:", error);
@@ -910,7 +920,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
 
     try {
       setIsSaving(true);
-      const content = editor.getHTML();
+      const content = editor.getJSON();
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 

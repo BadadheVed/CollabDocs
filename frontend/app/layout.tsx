@@ -1,8 +1,8 @@
 import React from "react";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import ToasterProvider from "@/components/ToasterProvider";
 import KeepAliveProvider from "@/components/KeepAliveProvider";
-import { Analytics } from "@vercel/analytics/next";
 export const metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_BASE_URL || "https://collabdocs.in",
@@ -161,6 +161,7 @@ export default function RootLayout({
         {children}
         <Analytics />
         <ToasterProvider />
+        <Analytics />
       </body>
     </html>
   );

@@ -1,4 +1,4 @@
-# [CollabDocs](https://collabdocs-site.vercel.app/)
+# [CollabDocs](https://collabdocs.in/)
 
 ![Landing Page](assets/landing.png)
 
@@ -63,7 +63,7 @@ CollabDocs is a seamless, real-time collaborative document editor designed for e
 
 ## 🔗 Deployment Links
 
-- **Frontend**: [https://collabdocs-site.vercel.app/](https://collabdocs-site.vercel.app/)
+- **Frontend**: [https://collabdocs.in/](https://collabdocs.in/)
 - **Backend & WebSocket**: _[Add deployment URLs here as needed]_
 
 ---
