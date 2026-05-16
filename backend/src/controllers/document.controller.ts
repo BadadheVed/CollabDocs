@@ -160,7 +160,7 @@ export const verifyToken = async (req: Request, res: Response) => {
 
 export const saveDocument = async (req: Request, res: Response) => {
   try {
-    const { token, content } = req.body as { token: string; content: string };
+    const { token, content } = req.body as { token: string; content: any };
 
     if (!token) {
       return res.status(400).json({ message: "Missing token" });
