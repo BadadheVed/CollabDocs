@@ -84,8 +84,11 @@ export default function JoinPrompt({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Your name</label>
+              <label htmlFor="join-name" className="text-sm font-medium">
+                Your name
+              </label>
               <Input
+                id="join-name"
                 placeholder="Enter your name..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
