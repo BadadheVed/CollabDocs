@@ -101,10 +101,27 @@ export async function getUserSessions(
     const raw = await redis.hgetall(key);
     if (!raw || Object.keys(raw).length === 0) return [];
     await redis.expire(key, USER_SESSIONS_TTL); // sliding TTL
-    return Object.entries(raw).map(([documentId, value]) => ({
-      documentId,
-      ...(JSON.parse(value) as UserSessionMeta),
-    }));
+
+    return Object.entries(raw)
+      .flatMap(([documentId, value]) => {
+        try {
+          return [
+            {
+              documentId,
+              ...(JSON.parse(value) as UserSessionMeta),
+            },
+          ];
+        } catch {
+          return [];
+        }
+      })
+      .sort((a, b) => {
+        const aTime = Date.parse(a.joinedAt);
+        const bTime = Date.parse(b.joinedAt);
+        const safeATime = Number.isNaN(aTime) ? Number.NEGATIVE_INFINITY : aTime;
+        const safeBTime = Number.isNaN(bTime) ? Number.NEGATIVE_INFINITY : bTime;
+        return safeBTime - safeATime;
+      });
   } catch {
     return [];
   }
