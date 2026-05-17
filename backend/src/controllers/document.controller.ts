@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
-import prisma from "@/client/db";
+import MongoDBClient, { MongoDocument } from "@/client/db";
 import { generateRoomCode, generatePin } from "@/utils/codes";
 import jwt from "jsonwebtoken";
 import { generateS3Key, uploadToS3, downloadFromS3 } from "@/utils/s3";
@@ -28,7 +28,7 @@ function ensureUserToken(req: Request, res: Response): string {
     httpOnly: true,
     sameSite: isProduction ? "none" : "lax",
     secure: isProduction,
-    maxAge: 10 * 365 * 24 * 60 * 60 * 1000, // 10 years
+    maxAge: 10 * 365 * 24 * 60 * 60 * 1000,
     path: "/",
   });
   return token;
@@ -43,51 +43,47 @@ export const createDocument = async (req: Request, res: Response) => {
     }
 
     const userToken = ensureUserToken(req, res);
+    const id = randomUUID();
     const docId = parseInt(generateRoomCode());
     const pin = parseInt(generatePin());
     const baseURL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const now = new Date();
 
-    const document = await prisma.document.create({
-      data: {
-        title,
-        docId,
-        pin,
+    const db = await MongoDBClient.getInstance();
+    await db.updateOne(
+      "documents",
+      { _id: id },
+      {
+        $set: {
+          _id: id,
+          title,
+          docId,
+          pin,
+          s3Path: null,
+          createdAt: now,
+          updatedAt: now,
+        },
       },
-      select: {
-        id: true,
-        title: true,
-        docId: true,
-        pin: true,
-        createdAt: true,
-      },
-    });
+      true,
+    );
 
-    const joinLink = `${baseURL}/join?docId=${document.docId}`;
+    const joinLink = `${baseURL}/join?docId=${docId}`;
 
     const token = jwt.sign(
-      {
-        documentId: document.id,
-        docId: document.docId,
-        pin: document.pin,
-        title: document.title,
-      },
+      { documentId: id, docId, pin, title },
       JWT_SECRET,
       { expiresIn: "7d" },
     );
 
-    if (name) await addDocParticipant(document.id, name);
-    const participants = await getDocParticipants(document.id);
-    await addUserSession(userToken, document.id, {
-      title: document.title,
-      docId: document.docId,
-      participants,
-    });
+    if (name) await addDocParticipant(id, name);
+    const participants = await getDocParticipants(id);
+    await addUserSession(userToken, id, { title, docId, participants });
 
     return res.status(201).json({
       message: "Document created successfully",
-      id: document.id,
-      docId: document.docId,
-      pin: document.pin,
+      id,
+      docId,
+      pin,
       joinLink,
       token,
     });
@@ -111,9 +107,10 @@ export const joinDocument = async (req: Request, res: Response) => {
 
     const userToken = ensureUserToken(req, res);
 
-    const document = await prisma.document.findFirst({
-      where: { docId, pin },
-      select: { id: true, title: true, s3Path: true },
+    const db = await MongoDBClient.getInstance();
+    const document = await db.getOne<MongoDocument>("documents", {
+      docId,
+      pin,
     });
 
     if (!document) {
@@ -122,18 +119,18 @@ export const joinDocument = async (req: Request, res: Response) => {
 
     const token = jwt.sign(
       {
-        documentId: document.id,
-        docId: docId,
-        pin: pin,
+        documentId: document._id,
+        docId,
+        pin,
         title: document.title,
       },
       JWT_SECRET,
       { expiresIn: "7d" },
     );
 
-    if (name) await addDocParticipant(document.id, name);
-    const participants = await getDocParticipants(document.id);
-    await addUserSession(userToken, document.id, {
+    if (name) await addDocParticipant(document._id, name);
+    const participants = await getDocParticipants(document._id);
+    await addUserSession(userToken, document._id, {
       title: document.title,
       docId,
       participants,
@@ -141,7 +138,7 @@ export const joinDocument = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       message: "Document ready to join",
-      id: document.id,
+      id: document._id,
       title: document.title,
       token,
       s3Path: document.s3Path,
@@ -163,9 +160,9 @@ export const verifyToken = async (req: Request, res: Response) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      const document = await prisma.document.findUnique({
-        where: { id: decoded.documentId },
-        select: { id: true, title: true, docId: true },
+      const db = await MongoDBClient.getInstance();
+      const document = await db.getOne<MongoDocument>("documents", {
+        _id: decoded.documentId,
       });
 
       if (!document) {
@@ -174,7 +171,7 @@ export const verifyToken = async (req: Request, res: Response) => {
 
       return res.status(200).json({
         message: "Token valid",
-        id: document.id,
+        id: document._id,
         title: document.title,
         docId: document.docId,
       });
@@ -201,20 +198,22 @@ export const saveDocument = async (req: Request, res: Response) => {
       const s3Key = generateS3Key(decoded.title, decoded.documentId);
       await uploadToS3(s3Key, { content });
 
-      const document = await prisma.document.update({
-        where: { id: decoded.documentId },
-        data: { s3Path: s3Key },
-        select: { id: true, title: true, updatedAt: true, s3Path: true },
-      });
+      const now = new Date();
+      const db = await MongoDBClient.getInstance();
+      await db.updateOne(
+        "documents",
+        { _id: decoded.documentId },
+        { $set: { s3Path: s3Key, updatedAt: now } },
+      );
 
       await setCachedContent(decoded.documentId, content);
 
       return res.status(200).json({
         message: "Document saved successfully",
-        id: document.id,
-        title: document.title,
-        savedAt: document.updatedAt,
-        s3Path: document.s3Path,
+        id: decoded.documentId,
+        title: decoded.title,
+        savedAt: now,
+        s3Path: s3Key,
       });
     } catch (jwtError) {
       return res.status(401).json({ message: "Invalid or expired token" });
@@ -241,9 +240,9 @@ export const loadDocument = async (req: Request, res: Response) => {
         return res.status(200).json({ source: "redis", content: cached });
       }
 
-      const document = await prisma.document.findUnique({
-        where: { id: decoded.documentId },
-        select: { id: true, title: true, s3Path: true },
+      const db = await MongoDBClient.getInstance();
+      const document = await db.getOne<MongoDocument>("documents", {
+        _id: decoded.documentId,
       });
 
       if (!document) {
@@ -291,11 +290,7 @@ export const getSessionToken = async (req: Request, res: Response) => {
 
     const meta = await getUserSessionMeta(userToken, documentId);
     const token = jwt.sign(
-      {
-        documentId,
-        docId: meta?.docId,
-        title: meta?.title,
-      },
+      { documentId, docId: meta?.docId, title: meta?.title },
       JWT_SECRET,
       { expiresIn: "24h" },
     );

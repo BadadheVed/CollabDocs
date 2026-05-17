@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import docsRouter from "@/routers/docs";
 import client from "prom-client";
 const app = express();
@@ -9,10 +10,12 @@ const frontendOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
 import { cronJob } from "./cron";
 import { metricsMiddleware } from "@/prom/middleware";
 import redis from "@/utils/redis";
+import MongoDBClient from "@/client/db";
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 
 // Service connection state
 let redisStatus: "connected" | "disconnected" = "disconnected";
+let mongoStatus: "connected" | "disconnected" = "disconnected";
 let s3Status: "connected" | "disconnected" = "disconnected";
 
 // CORS configuration
@@ -26,6 +29,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(metricsMiddleware);
 
 // Health check endpoint
@@ -36,6 +40,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     redis: redisStatus,
+    mongo: mongoStatus,
     objectStore: s3Status,
   });
 });
@@ -69,6 +74,16 @@ const PORT = Number(process.env.PORT || 8080);
       console.log("✅ Redis connected");
     } catch (err) {
       console.error("❌ Redis connection failed:", err);
+    }
+
+    // Check MongoDB connectivity
+    try {
+      const db = await MongoDBClient.getInstance();
+      await db.ping();
+      mongoStatus = "connected";
+      console.log("✅ MongoDB connected");
+    } catch (err) {
+      console.error("❌ MongoDB connection failed:", err);
     }
 
     // Check S3 connectivity (HeadBucket on the configured bucket)
