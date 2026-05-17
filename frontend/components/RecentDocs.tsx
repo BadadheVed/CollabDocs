@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Clock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getSessionsFromCookie, SessionEntry } from "@/lib/sessions";
+import { getUserSessions, SessionEntry } from "@/lib/sessions";
 
 const SESSIONS_PER_PAGE = 3;
 
@@ -19,7 +19,7 @@ export default function RecentDocs() {
   useEffect(() => {
     const load = async () => {
       try {
-        const sessions = await getSessionsFromCookie();
+        const sessions = await getUserSessions();
         setDocs(sessions);
       } catch {
         // Non-critical — silently fail

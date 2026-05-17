@@ -5,9 +5,6 @@
 
 import axios from "@/axios/axios";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
-
 export interface SessionEntry {
   documentId: string;
   title: string;
@@ -17,29 +14,27 @@ export interface SessionEntry {
 }
 
 // No-op: session cookie is now set server-side as HttpOnly via Set-Cookie header.
-export function addSessionToCookie(_entry: {
+export function trackSessionFromJoin(_entry: {
   documentId: string;
   token: string;
   title: string;
   docId: number;
 }): void {}
 
-export async function getSessionsFromCookie(): Promise<SessionEntry[]> {
+export async function getUserSessions(): Promise<SessionEntry[]> {
   try {
-    const res = await axios.get(`${BACKEND_URL}/docs/sessions`);
+    const res = await axios.get("/docs/sessions");
     return res.data.sessions ?? [];
   } catch {
     return [];
   }
 }
 
-export async function getTokenFromCookie(
+export async function getSessionToken(
   documentId: string,
 ): Promise<string | null> {
   try {
-    const res = await axios.get(
-      `${BACKEND_URL}/docs/sessions/${documentId}/token`,
-    );
+    const res = await axios.get(`/docs/sessions/${documentId}/token`);
     return res.data.token ?? null;
   } catch {
     return null;

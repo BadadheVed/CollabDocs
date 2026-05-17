@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { addSessionToCookie } from "@/lib/sessions";
+import { trackSessionFromJoin } from "@/lib/sessions";
 import { DocumentCreatedModal } from "@/components/DocumentCreatedModal";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -76,7 +76,7 @@ export default function Home() {
     try {
       const docTitle = title;
       const response = await api.createDocument(title, creatorName);
-      addSessionToCookie({
+      trackSessionFromJoin({
         documentId: response.id,
         token: response.token,
         title: docTitle,

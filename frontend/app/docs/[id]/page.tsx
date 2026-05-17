@@ -6,8 +6,8 @@ import JoinPrompt from "@/components/JoinPrompt";
 import type { User } from "@/types/editor.types";
 import axios from "axios";
 import {
-  getTokenFromCookie,
-  addSessionToCookie,
+  getSessionToken,
+  trackSessionFromJoin,
 } from "@/lib/sessions";
 
 const BACKEND_URL =
@@ -44,10 +44,10 @@ export default function DocPage() {
     const initializeDocument = async () => {
       try {
         // 1. Check for stored HttpOnly session token via backend API
-        const storedToken = idParam ? await getTokenFromCookie(idParam) : null;
+        const storedToken = idParam ? await getSessionToken(idParam) : null;
 
         if (storedToken) {
-          // getTokenFromCookie already verified Redis access — no extra verify needed
+          // getSessionToken already verified Redis access — no extra verify needed
           setUser({
             id: generateUUID(),
             username: "User",
@@ -100,8 +100,8 @@ export default function DocPage() {
     );
 
     if (response.data.token && response.data.id === idParam) {
-      // addSessionToCookie is a no-op — backend already set the HttpOnly cookie.
-      addSessionToCookie({
+      // trackSessionFromJoin is a no-op — backend already set the HttpOnly cookie.
+      trackSessionFromJoin({
         documentId: idParam!,
         token: response.data.token,
         title: response.data.title,
