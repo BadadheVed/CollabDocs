@@ -73,16 +73,22 @@ interface ImageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (url: string) => void;
+  token?: string;
+  backendUrl?: string;
 }
 
 export function ImageDialog({
   open,
   onOpenChange,
   onSubmit,
+  token,
+  backendUrl,
 }: ImageDialogProps) {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("url");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleUrlSubmit = () => {
     onSubmit(url);
@@ -91,15 +97,30 @@ export function ImageDialog({
   };
 
   const handleFileSubmit = async () => {
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      onSubmit(reader.result as string);
+    if (!file || !token || !backendUrl) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`${backendUrl}/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      const { url } = await response.json();
+      onSubmit(url);
       setFile(null);
       onOpenChange(false);
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setUploadError("Upload failed. Please try again.");
+      console.error("Image upload error:", err);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,16 +201,22 @@ export function ImageDialog({
                     Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
                   </p>
                 )}
+                {!token && (
+                  <p className="text-sm text-gray-500">Sign in to upload images.</p>
+                )}
               </div>
             </div>
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleFileSubmit} disabled={!file}>
-                Upload Image
+              <Button onClick={handleFileSubmit} disabled={!file || isUploading || !token}>
+                {isUploading ? "Uploading..." : "Upload Image"}
               </Button>
             </DialogFooter>
+            {uploadError && (
+              <p className="text-sm text-red-500 mt-2">{uploadError}</p>
+            )}
           </Tabs.Content>
         </Tabs.Root>
       </DialogContent>

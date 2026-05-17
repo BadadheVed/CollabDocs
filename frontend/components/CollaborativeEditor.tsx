@@ -87,7 +87,7 @@ import {
   YouTubeDialog,
 } from "@/components/EditorDialogs";
 
-const MenuBar = ({ editor }: { editor: any }) => {
+const MenuBar = ({ editor, token, backendUrl }: { editor: any; token?: string; backendUrl?: string }) => {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
@@ -387,6 +387,8 @@ const MenuBar = ({ editor }: { editor: any }) => {
         open={imageDialogOpen}
         onOpenChange={setImageDialogOpen}
         onSubmit={handleImageSubmit}
+        token={token}
+        backendUrl={backendUrl}
       />
       <YouTubeDialog
         open={youtubeDialogOpen}
@@ -1111,7 +1113,13 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
       </header>
 
       <div className="sticky top-[4.5rem] z-[5] bg-white border border-gray-200 rounded-md shadow-sm">
-        {editor && <MenuBar editor={editor} />}
+        {editor && (
+          <MenuBar
+            editor={editor}
+            token={user?.token}
+            backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"}
+          />
+        )}
       </div>
 
       <div className="border border-gray-200 rounded-md bg-white overflow-hidden shadow-sm">
