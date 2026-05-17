@@ -87,7 +87,7 @@ export default function JoinPrompt({
                 placeholder="Enter your name..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                onKeyDown={(e) => e.key === "Enter" && !loading && handleJoin()}
                 maxLength={50}
                 autoFocus
               />
