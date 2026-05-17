@@ -72,10 +72,14 @@ export default function DocPage() {
         let userCount = 0;
 
         try {
-          const joinRes = await axios.post(`${BACKEND_URL}/docs/join`, {
-            docId: Number(docId),
-            pin: Number(pin),
-          });
+          const joinRes = await axios.post(
+            `${BACKEND_URL}/docs/join`,
+            {
+              docId: Number(docId),
+              pin: Number(pin),
+            },
+            { withCredentials: true },
+          );
           title = joinRes.data.title ?? title;
 
           // Fetch active user count from WS API (non-critical)
