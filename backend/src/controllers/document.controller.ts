@@ -289,8 +289,12 @@ export const getSessionToken = async (req: Request, res: Response) => {
     if (!access) return res.status(403).json({ message: "No access" });
 
     const meta = await getUserSessionMeta(userToken, documentId);
+    if (!meta || meta.docId == null || !meta.title) {
+      return res.status(409).json({ message: "Session metadata unavailable" });
+    }
+
     const token = jwt.sign(
-      { documentId, docId: meta?.docId, title: meta?.title },
+      { documentId, docId: meta.docId, title: meta.title },
       JWT_SECRET,
       { expiresIn: "24h" },
     );
