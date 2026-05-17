@@ -120,11 +120,15 @@ export default function DocPage() {
     const docId = searchParams.get("docId");
     const pin = searchParams.get("pin");
 
-    const response = await axios.post(`${BACKEND_URL}/docs/join`, {
-      docId: Number(docId),
-      pin: Number(pin),
-      name,
-    });
+    const response = await axios.post(
+      `${BACKEND_URL}/docs/join`,
+      {
+        docId: Number(docId),
+        pin: Number(pin),
+        name,
+      },
+      { withCredentials: true }
+    );
 
     if (response.data.token && response.data.id === idParam) {
       // addSessionToCookie is a no-op — backend already set the HttpOnly cookie.
