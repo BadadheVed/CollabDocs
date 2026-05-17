@@ -67,41 +67,10 @@ export default function DocPage() {
           return;
         }
 
-        // Pre-fetch document info (title + user count) to show in the join prompt
-        let title = "Document";
-        let userCount = 0;
-
-        try {
-          const joinRes = await axios.post(
-            `${BACKEND_URL}/docs/join`,
-            {
-              docId: Number(docId),
-              pin: Number(pin),
-            },
-            { withCredentials: true },
-          );
-          title = joinRes.data.title ?? title;
-
-          // Fetch active user count from WS API (non-critical)
-          try {
-            const wsApiUrl =
-              process.env.NEXT_PUBLIC_WS_API_URL || "http://localhost:1235";
-            const countRes = await fetch(`${wsApiUrl}/room/${joinRes.data.id}`);
-            if (countRes.ok) {
-              const data = await countRes.json();
-              userCount = data.userCount ?? 0;
-            }
-          } catch {}
-        } catch (err: any) {
-          setError(
-            err.response?.data?.message || "Invalid document credentials",
-          );
-          setPageState("error");
-          setTimeout(() => router.replace("/join"), 2000);
-          return;
-        }
-
-        setJoinDocInfo({ title, userCount });
+        // Do not preflight the mutating join endpoint here.
+        // The actual /docs/join request should only happen after the user confirms.
+        // Until then, show the join prompt with non-mutating placeholder metadata.
+        setJoinDocInfo({ title: "Document", userCount: 0 });
         setPageState("join-prompt");
       } catch (err: any) {
         console.error("Error initializing document:", err);
