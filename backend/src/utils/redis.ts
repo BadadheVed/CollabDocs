@@ -89,8 +89,14 @@ export async function addUserSession(
     };
     await redis.hset(key, documentId, JSON.stringify(value));
 
-    const rawSessions = await redis.hgetall(key);
-    if (Object.keys(rawSessions).length > MAX_USER_SESSIONS) {
+    const totalSessions = await redis.hlen(key);
+    if (totalSessions > MAX_USER_SESSIONS) {
+      const rawSessions = await redis.hgetall(key);
+      if (Object.keys(rawSessions).length <= MAX_USER_SESSIONS) {
+        await redis.expire(key, USER_SESSIONS_TTL);
+        return;
+      }
+
       const parseJoinedAt = (value: string): number => {
         try {
           const joinedAt = (JSON.parse(value) as UserSessionMeta).joinedAt;
@@ -106,7 +112,7 @@ export async function addUserSession(
           docId,
           joinedAt: parseJoinedAt(value),
         }))
-        // Sort newest-first and remove entries beyond the max cap.
+        // Sort by newest-first, then remove entries beyond the max cap (oldest ones).
         .sort((a, b) => b.joinedAt - a.joinedAt)
         .slice(MAX_USER_SESSIONS)
         .map(({ docId }) => docId);
