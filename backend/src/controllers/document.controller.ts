@@ -214,7 +214,7 @@ export const loadDocument = async (req: Request, res: Response) => {
 
       // 1. Redis cache hit — fastest path
       const cached = await getCachedContent(decoded.documentId);
-      if (cached && cached.length > 0) {
+      if (cached && typeof cached === 'object') {
         return res.status(200).json({ source: "redis", content: cached });
       }
 

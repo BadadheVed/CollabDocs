@@ -3,6 +3,9 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { Readable } from "stream";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
@@ -67,4 +70,46 @@ export async function downloadFromS3(key: string): Promise<object | null> {
     console.error(`Failed to download from S3 key "${key}":`, error);
     return null;
   }
+}
+
+/**
+ * Generates an S3 key for a media file: media/{documentId}/{uuid}.{ext}
+ */
+export function generateMediaKey(documentId: string, filename: string): string {
+  const ext = path.extname(filename).toLowerCase() || ".bin";
+  return `media/${documentId}/${uuidv4()}${ext}`;
+}
+
+/**
+ * Uploads a raw file buffer to S3. Returns the key used.
+ */
+export async function uploadMediaToS3(
+  key: string,
+  buffer: Buffer,
+  mimeType: string,
+): Promise<string> {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+    }),
+  );
+  return key;
+}
+
+/**
+ * Streams a media file from S3. Throws if the key doesn't exist.
+ */
+export async function streamMediaFromS3(
+  key: string,
+): Promise<{ body: Readable; contentType: string }> {
+  const response = await s3Client.send(
+    new GetObjectCommand({ Bucket: BUCKET, Key: key }),
+  );
+  return {
+    body: response.Body as Readable,
+    contentType: response.ContentType ?? "application/octet-stream",
+  };
 }

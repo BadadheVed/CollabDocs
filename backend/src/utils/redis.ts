@@ -26,9 +26,13 @@ function docKey(documentId: string): string {
  */
 export async function getCachedContent(
   documentId: string,
-): Promise<string | null> {
+): Promise<any> {
   try {
-    return await redis.get(docKey(documentId));
+    const raw = await redis.get(docKey(documentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -40,10 +44,10 @@ export async function getCachedContent(
  */
 export async function setCachedContent(
   documentId: string,
-  content: string,
+  content: object,
 ): Promise<void> {
   try {
-    await redis.set(docKey(documentId), content, "EX", SEVEN_DAYS_SECONDS);
+    await redis.set(docKey(documentId), JSON.stringify(content), "EX", SEVEN_DAYS_SECONDS);
   } catch (err: any) {
     console.error("Redis set error:", err.message);
   }

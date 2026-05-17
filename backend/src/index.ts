@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import docsRouter from "@/routers/docs";
+import mediaRouter from "@/routers/media";
 import client from "prom-client";
 const app = express();
 const frontendOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
@@ -25,7 +26,7 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(metricsMiddleware);
 
 // Health check endpoint
@@ -52,6 +53,7 @@ app.get("/metrics", async (req, res) => {
 });
 
 app.use("/docs", docsRouter);
+app.use("/media", mediaRouter);
 
 // 404 handler
 app.use((req, res) => {
