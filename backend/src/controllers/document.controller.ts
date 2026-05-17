@@ -105,7 +105,8 @@ export const joinDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing document ID or pin" });
     }
 
-    const userToken = ensureUserToken(req, res);
+    const existingUserToken = (req as any).cookies?.collabdocs_user_token;
+    const shouldTrackSession = Boolean(existingUserToken || name);
 
     const db = await MongoDBClient.getInstance();
     const document = await db.getOne<MongoDocument>("documents", {
@@ -129,12 +130,15 @@ export const joinDocument = async (req: Request, res: Response) => {
     );
 
     if (name) await addDocParticipant(document._id, name);
-    const participants = await getDocParticipants(document._id);
-    await addUserSession(userToken, document._id, {
-      title: document.title,
-      docId,
-      participants,
-    });
+    if (shouldTrackSession) {
+      const userToken = existingUserToken ?? ensureUserToken(req, res);
+      const participants = await getDocParticipants(document._id);
+      await addUserSession(userToken, document._id, {
+        title: document.title,
+        docId,
+        participants,
+      });
+    }
 
     return res.status(200).json({
       message: "Document ready to join",
