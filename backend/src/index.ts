@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import docsRouter from "@/routers/docs";
 import client from "prom-client";
 const app = express();
@@ -25,7 +26,8 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(cookieParser());
 app.use(metricsMiddleware);
 
 // Health check endpoint

@@ -10,10 +10,38 @@ import {
   getDocParticipants,
   setDocToken,
 } from "@/utils/redis";
-import { checkPrime } from "crypto";
-
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
+interface SessionEntry {
+  documentId: string;
+  token: string;
+  title: string;
+  docId: number;
+}
+
+function writeSessionCookie(
+  res: Response,
+  req: Request,
+  entry: SessionEntry,
+): void {
+  const raw = (req as any).cookies?.collabdocs_sessions;
+  let sessions: SessionEntry[] = [];
+  try {
+    sessions = raw ? JSON.parse(raw) : [];
+  } catch {}
+  sessions = sessions.filter((s) => s.documentId !== entry.documentId);
+  sessions.unshift(entry);
+  sessions = sessions.slice(0, 10);
+  const isProduction = process.env.NODE_ENV === "production";
+  res.cookie("collabdocs_sessions", JSON.stringify(sessions), {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  });
+}
 
 export const createDocument = async (req: Request, res: Response) => {
   try {
@@ -58,6 +86,13 @@ export const createDocument = async (req: Request, res: Response) => {
 
     await setDocToken(document.id, token);
     if (name) await addDocParticipant(document.id, name);
+
+    writeSessionCookie(res, req, {
+      documentId: document.id,
+      token,
+      title: document.title,
+      docId: document.docId,
+    });
 
     return res.status(201).json({
       message: "Document created successfully",
@@ -108,6 +143,13 @@ export const joinDocument = async (req: Request, res: Response) => {
 
     await setDocToken(document.id, token);
     if (name) await addDocParticipant(document.id, name);
+
+    writeSessionCookie(res, req, {
+      documentId: document.id,
+      token,
+      title: document.title,
+      docId,
+    });
 
     return res.status(200).json({
       message: "Document ready to join",
@@ -276,6 +318,29 @@ export const getRecentDocs = async (req: Request, res: Response) => {
     return res.status(200).json({ docs });
   } catch (error) {
     console.error("Error fetching recent docs:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getSessions = (req: Request, res: Response) => {
+  try {
+    const raw = (req as any).cookies?.collabdocs_sessions;
+    const sessions: SessionEntry[] = raw ? JSON.parse(raw) : [];
+    return res.status(200).json({ sessions });
+  } catch {
+    return res.status(200).json({ sessions: [] });
+  }
+};
+
+export const getSessionToken = (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const raw = (req as any).cookies?.collabdocs_sessions;
+    const sessions: SessionEntry[] = raw ? JSON.parse(raw) : [];
+    const entry = sessions.find((s) => s.documentId === documentId);
+    if (!entry) return res.status(404).json({ message: "No session found" });
+    return res.status(200).json({ token: entry.token });
+  } catch {
     return res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -19,7 +19,7 @@ export default function RecentDocs() {
 
   useEffect(() => {
     const load = async () => {
-      const sessions = getSessionsFromCookie();
+      const sessions = await getSessionsFromCookie();
       if (sessions.length === 0) {
         setLoading(false);
         return;
