@@ -7,7 +7,6 @@ const app = express();
 const frontendOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
   .split(",")
   .map((o) => o.trim());
-import { cronJob } from "./cron";
 import { metricsMiddleware } from "@/prom/middleware";
 import redis from "@/utils/redis";
 import MongoDBClient from "@/client/db";
@@ -33,7 +32,6 @@ app.use(cookieParser());
 app.use(metricsMiddleware);
 
 // Health check endpoint
-cronJob.start();
 client.collectDefaultMetrics();
 app.get("/health", (req, res) => {
   res.status(200).json({
