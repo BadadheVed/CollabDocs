@@ -30,6 +30,8 @@ export default function JoinPrompt({
   const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
+    if (loading) return;
+
     if (!name.trim()) {
       setError("Please enter your name");
       return;
@@ -87,7 +89,14 @@ export default function JoinPrompt({
                 placeholder="Enter your name..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !loading && handleJoin()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (!loading) {
+                      handleJoin();
+                    }
+                  }
+                }}
                 maxLength={50}
                 autoFocus
               />
