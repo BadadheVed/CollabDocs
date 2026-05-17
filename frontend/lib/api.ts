@@ -20,13 +20,6 @@ export interface JoinDocResponse {
   docId?: number;
 }
 
-export interface RecentDoc {
-  documentId: string;
-  title: string;
-  docId: number;
-  participants: string[];
-}
-
 export const api = {
   createDocument: async (
     title: string,
@@ -50,13 +43,5 @@ export const api = {
       name,
     });
     return response.data;
-  },
-
-  getRecentDocs: async (tokens: string[]): Promise<RecentDoc[]> => {
-    if (tokens.length === 0) return [];
-    const response = await axios.post(`${API_BASE_URL}/docs/recents`, {
-      tokens,
-    });
-    return response.data.docs;
   },
 };

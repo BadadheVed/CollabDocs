@@ -1,55 +1,47 @@
-// Cookie-based storage for document JWT tokens (recent docs)
+// Session management via backend-set HttpOnly cookie.
+// The user identity cookie (collabdocs_user_token) is written by the backend on
+// first join/create — not accessible from JS. Sessions are stored in Redis keyed
+// by that token. These helpers call the backend API to read session data.
 
-const COOKIE_NAME = "collabdocs_sessions";
-const MAX_SESSIONS = 10;
-const TTL_DAYS = 7;
+import axios from "@/axios/axios";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
 export interface SessionEntry {
+  documentId: string;
+  title: string;
+  docId: number;
+  joinedAt: string;
+  participants: string[];
+}
+
+// No-op: session cookie is now set server-side as HttpOnly via Set-Cookie header.
+export function addSessionToCookie(_entry: {
   documentId: string;
   token: string;
   title: string;
   docId: number;
-}
+}): void {}
 
-function getCookieValue(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(
-    new RegExp("(^| )" + name + "=([^;]+)"),
-  );
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-function setCookieValue(name: string, value: string, days: number) {
-  const expires = new Date();
-  expires.setDate(expires.getDate() + days);
-  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
-}
-
-export function getSessionsFromCookie(): SessionEntry[] {
+export async function getSessionsFromCookie(): Promise<SessionEntry[]> {
   try {
-    const raw = getCookieValue(COOKIE_NAME);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const res = await axios.get(`${BACKEND_URL}/docs/sessions`);
+    return res.data.sessions ?? [];
   } catch {
     return [];
   }
 }
 
-export function addSessionToCookie(entry: SessionEntry) {
-  const sessions = getSessionsFromCookie().filter(
-    (s) => s.documentId !== entry.documentId,
-  );
-  sessions.unshift(entry); // most recent first
-  setCookieValue(
-    COOKIE_NAME,
-    JSON.stringify(sessions.slice(0, MAX_SESSIONS)),
-    TTL_DAYS,
-  );
-}
-
-export function getTokenFromCookie(documentId: string): string | null {
-  return (
-    getSessionsFromCookie().find((s) => s.documentId === documentId)?.token ??
-    null
-  );
+export async function getTokenFromCookie(
+  documentId: string,
+): Promise<string | null> {
+  try {
+    const res = await axios.get(
+      `${BACKEND_URL}/docs/sessions/${documentId}/token`,
+    );
+    return res.data.token ?? null;
+  } catch {
+    return null;
+  }
 }

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import prisma from "@/client/db";
 import { generateRoomCode, generatePin } from "@/utils/codes";
 import jwt from "jsonwebtoken";
@@ -8,12 +9,30 @@ import {
   setCachedContent,
   addDocParticipant,
   getDocParticipants,
-  setDocToken,
+  addUserSession,
+  getUserSessions,
+  hasUserAccess,
+  getUserSessionMeta,
 } from "@/utils/redis";
-import { checkPrime } from "crypto";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+function ensureUserToken(req: Request, res: Response): string {
+  const existing = (req as any).cookies?.collabdocs_user_token;
+  if (existing) return existing;
+  const token = randomUUID();
+  res.cookie("collabdocs_user_token", token, {
+    httpOnly: true,
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
+    maxAge: 10 * 365 * 24 * 60 * 60 * 1000, // 10 years
+    path: "/",
+  });
+  return token;
+}
 
 export const createDocument = async (req: Request, res: Response) => {
   try {
@@ -23,6 +42,7 @@ export const createDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing title" });
     }
 
+    const userToken = ensureUserToken(req, res);
     const docId = parseInt(generateRoomCode());
     const pin = parseInt(generatePin());
     const baseURL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -34,17 +54,16 @@ export const createDocument = async (req: Request, res: Response) => {
         pin,
       },
       select: {
-        id: true, // UUID (used for WebSocket room)
+        id: true,
         title: true,
-        docId: true, // 9-digit numeric code
-        pin: true, // 4-digit access code
+        docId: true,
+        pin: true,
         createdAt: true,
       },
     });
 
     const joinLink = `${baseURL}/join?docId=${document.docId}`;
 
-    // Generate JWT token for document access
     const token = jwt.sign(
       {
         documentId: document.id,
@@ -56,8 +75,13 @@ export const createDocument = async (req: Request, res: Response) => {
       { expiresIn: "7d" },
     );
 
-    await setDocToken(document.id, token);
     if (name) await addDocParticipant(document.id, name);
+    const participants = await getDocParticipants(document.id);
+    await addUserSession(userToken, document.id, {
+      title: document.title,
+      docId: document.docId,
+      participants,
+    });
 
     return res.status(201).json({
       message: "Document created successfully",
@@ -85,6 +109,8 @@ export const joinDocument = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing document ID or pin" });
     }
 
+    const userToken = ensureUserToken(req, res);
+
     const document = await prisma.document.findFirst({
       where: { docId, pin },
       select: { id: true, title: true, s3Path: true },
@@ -94,7 +120,6 @@ export const joinDocument = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Document not found" });
     }
 
-    // Generate JWT token for document access
     const token = jwt.sign(
       {
         documentId: document.id,
@@ -106,15 +131,20 @@ export const joinDocument = async (req: Request, res: Response) => {
       { expiresIn: "7d" },
     );
 
-    await setDocToken(document.id, token);
     if (name) await addDocParticipant(document.id, name);
+    const participants = await getDocParticipants(document.id);
+    await addUserSession(userToken, document.id, {
+      title: document.title,
+      docId,
+      participants,
+    });
 
     return res.status(200).json({
       message: "Document ready to join",
       id: document.id,
       title: document.title,
       token,
-      s3Path: document.s3Path, // null for new docs, key string for saved docs
+      s3Path: document.s3Path,
     });
   } catch (error) {
     console.error("Error joining document:", error);
@@ -133,7 +163,6 @@ export const verifyToken = async (req: Request, res: Response) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      // Verify document still exists
       const document = await prisma.document.findUnique({
         where: { id: decoded.documentId },
         select: { id: true, title: true, docId: true },
@@ -169,20 +198,15 @@ export const saveDocument = async (req: Request, res: Response) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      // Generate S3 key: <title>-<first-5-chars-of-id>-<ddmm>
       const s3Key = generateS3Key(decoded.title, decoded.documentId);
-
-      // Upload content JSON to S3
       await uploadToS3(s3Key, { content });
 
-      // Update DB with content and s3Path
       const document = await prisma.document.update({
         where: { id: decoded.documentId },
         data: { s3Path: s3Key },
         select: { id: true, title: true, updatedAt: true, s3Path: true },
       });
 
-      // Populate Redis cache so next load is a cache hit (TTL: 7 days)
       await setCachedContent(decoded.documentId, content);
 
       return res.status(200).json({
@@ -212,13 +236,11 @@ export const loadDocument = async (req: Request, res: Response) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      // 1. Redis cache hit — fastest path
       const cached = await getCachedContent(decoded.documentId);
       if (cached && cached.length > 0) {
         return res.status(200).json({ source: "redis", content: cached });
       }
 
-      // 2. Cache miss — check DB for s3Path
       const document = await prisma.document.findUnique({
         where: { id: decoded.documentId },
         select: { id: true, title: true, s3Path: true },
@@ -229,7 +251,6 @@ export const loadDocument = async (req: Request, res: Response) => {
       }
 
       if (document.s3Path) {
-        // 3. Fetch from S3, then backfill Redis (TTL: 7 days)
         const s3Data = await downloadFromS3(document.s3Path);
         if (s3Data) {
           const content = (s3Data as any).content ?? null;
@@ -238,7 +259,6 @@ export const loadDocument = async (req: Request, res: Response) => {
         }
       }
 
-      // No content found — document hasn't been saved to S3 yet
       return res.status(200).json({ source: "none", content: null });
     } catch (jwtError) {
       return res.status(401).json({ message: "Invalid or expired token" });
@@ -249,33 +269,39 @@ export const loadDocument = async (req: Request, res: Response) => {
   }
 };
 
-export const getRecentDocs = async (req: Request, res: Response) => {
+export const getSessions = async (req: Request, res: Response) => {
   try {
-    const { tokens } = req.body as { tokens: string[] };
+    const userToken = (req as any).cookies?.collabdocs_user_token;
+    if (!userToken) return res.status(200).json({ sessions: [] });
+    const sessions = await getUserSessions(userToken);
+    return res.status(200).json({ sessions });
+  } catch {
+    return res.status(200).json({ sessions: [] });
+  }
+};
 
-    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-      return res.status(200).json({ docs: [] });
-    }
+export const getSessionToken = async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const userToken = (req as any).cookies?.collabdocs_user_token;
+    if (!userToken) return res.status(403).json({ message: "No user token" });
 
-    const docs = [];
-    for (const token of tokens) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
-        const participants = await getDocParticipants(decoded.documentId);
-        docs.push({
-          documentId: decoded.documentId,
-          title: decoded.title,
-          docId: decoded.docId,
-          participants,
-        });
-      } catch {
-        // Invalid / expired token — skip
-      }
-    }
+    const access = await hasUserAccess(userToken, documentId);
+    if (!access) return res.status(403).json({ message: "No access" });
 
-    return res.status(200).json({ docs });
-  } catch (error) {
-    console.error("Error fetching recent docs:", error);
+    const meta = await getUserSessionMeta(userToken, documentId);
+    const token = jwt.sign(
+      {
+        documentId,
+        docId: meta?.docId,
+        title: meta?.title,
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" },
+    );
+
+    return res.status(200).json({ token });
+  } catch {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
