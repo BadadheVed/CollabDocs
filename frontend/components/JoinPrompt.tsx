@@ -92,9 +92,7 @@ export default function JoinPrompt({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (!loading) {
-                      handleJoin();
-                    }
+                    handleJoin();
                   }
                 }}
                 maxLength={50}
