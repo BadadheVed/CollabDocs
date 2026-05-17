@@ -63,6 +63,7 @@ export async function deleteCachedContent(documentId: string): Promise<void> {
 // ── User Session Tracking ─────────────────────────────────────────────────────
 
 const USER_SESSIONS_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+const MAX_USER_SESSIONS = 10;
 
 interface UserSessionMeta {
   title: string;
@@ -87,6 +88,34 @@ export async function addUserSession(
       joinedAt: new Date().toISOString(),
     };
     await redis.hset(key, documentId, JSON.stringify(value));
+
+    const totalSessions = await redis.hlen(key);
+    if (totalSessions > MAX_USER_SESSIONS) {
+      const rawSessions = await redis.hgetall(key);
+      const parseJoinedAt = (value: string): number => {
+        try {
+          const joinedAt = (JSON.parse(value) as UserSessionMeta).joinedAt;
+          const parsed = Date.parse(joinedAt || "");
+          return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+        } catch {
+          return Number.NEGATIVE_INFINITY;
+        }
+      };
+
+      const sessionsToRemove = Object.entries(rawSessions)
+        .map(([docId, value]) => ({
+          docId,
+          joinedAt: parseJoinedAt(value),
+        }))
+        .sort((a, b) => b.joinedAt - a.joinedAt)
+        .slice(MAX_USER_SESSIONS)
+        .map(({ docId }) => docId);
+
+      if (sessionsToRemove.length > 0) {
+        await redis.hdel(key, ...sessionsToRemove);
+      }
+    }
+
     await redis.expire(key, USER_SESSIONS_TTL);
   } catch {
     // silently ignore — session tracking is non-critical
