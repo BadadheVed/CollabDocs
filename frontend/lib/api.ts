@@ -1,7 +1,4 @@
-import axios from "axios";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+import axios from "@/axios/axios";
 
 export interface CreateDocResponse {
   message: string;
@@ -25,7 +22,7 @@ export const api = {
     title: string,
     name?: string,
   ): Promise<CreateDocResponse> => {
-    const response = await axios.post(`${API_BASE_URL}/docs/create`, {
+    const response = await axios.post("/docs/create", {
       title,
       name,
     });
@@ -37,7 +34,7 @@ export const api = {
     pin: number,
     name?: string,
   ): Promise<JoinDocResponse> => {
-    const response = await axios.post(`${API_BASE_URL}/docs/join`, {
+    const response = await axios.post("/docs/join", {
       docId,
       pin,
       name,
