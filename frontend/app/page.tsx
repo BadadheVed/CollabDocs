@@ -26,6 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useState } from "react";
+import ServiceStatus from "@/components/ServiceStatus";
 import { api } from "@/lib/api";
 import { trackSessionFromJoin } from "@/lib/sessions";
 import { DocumentCreatedModal } from "@/components/DocumentCreatedModal";
@@ -161,6 +162,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <ServiceStatus />
       <div className="container mx-auto px-4 py-12 md:py-20">
         {/* Hero Section */}
         <motion.div

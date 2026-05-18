@@ -2,7 +2,6 @@ import React from "react";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import ToasterProvider from "@/components/ToasterProvider";
-import KeepAliveProvider from "@/components/KeepAliveProvider";
 export const metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_BASE_URL || "https://collabdocs.in",
@@ -157,7 +156,6 @@ export default function RootLayout({
         `}</Script>
       </head>
       <body className="bg-white text-gray-900 min-h-screen antialiased">
-        <KeepAliveProvider />
         {children}
         <Analytics />
         <ToasterProvider />
