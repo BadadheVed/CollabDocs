@@ -19,6 +19,7 @@ export default function ServiceStatus() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const attemptsRef = useRef(0);
+  const inFlightRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const stop = () => {
@@ -26,27 +27,34 @@ export default function ServiceStatus() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    inFlightRef.current = false;
     setPolling(false);
   };
 
   const doCheck = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     attemptsRef.current += 1;
     const n = attemptsRef.current;
     setAttempts(n);
 
-    const [backendOk, wsOk] = await Promise.all([
-      fetch(`${BACKEND_URL}/health`)
-        .then((r) => r.ok)
-        .catch(() => false),
-      fetch(`${WS_API_URL}/health`)
-        .then((r) => r.ok)
-        .catch(() => false),
-    ]);
+    try {
+      const [backendOk, wsOk] = await Promise.all([
+        fetch(`${BACKEND_URL}/health`)
+          .then((r) => r.ok)
+          .catch(() => false),
+        fetch(`${WS_API_URL}/health`)
+          .then((r) => r.ok)
+          .catch(() => false),
+      ]);
 
-    setBackend(backendOk ? "up" : "down");
-    setWs(wsOk ? "up" : "down");
+      setBackend(backendOk ? "up" : "down");
+      setWs(wsOk ? "up" : "down");
 
-    if ((backendOk && wsOk) || n >= MAX_ATTEMPTS) stop();
+      if ((backendOk && wsOk) || n >= MAX_ATTEMPTS) stop();
+    } finally {
+      inFlightRef.current = false;
+    }
   };
 
   const start = () => {
