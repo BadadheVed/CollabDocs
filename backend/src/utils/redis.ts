@@ -60,35 +60,132 @@ export async function deleteCachedContent(documentId: string): Promise<void> {
   }
 }
 
-// ── Document Token Storage ────────────────────────────────────────────────────
+// ── User Session Tracking ─────────────────────────────────────────────────────
 
-function docTokenKey(documentId: string): string {
-  return `doc:token:${documentId}`;
+const USER_SESSIONS_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+const MAX_USER_SESSIONS = 10;
+
+interface UserSessionMeta {
+  title: string;
+  docId: number;
+  joinedAt: string;
+  participants: string[];
 }
 
-/**
- * Store the JWT token for a document in Redis (TTL: 7 days).
- * Allows fast recent-doc lookups without re-issuing tokens.
- */
-export async function setDocToken(
+function userSessionsKey(userToken: string): string {
+  return `user_sessions:${userToken}`;
+}
+
+export async function addUserSession(
+  userToken: string,
   documentId: string,
-  token: string,
+  meta: { title: string; docId: number; participants: string[] },
 ): Promise<void> {
   try {
-    await redis.set(docTokenKey(documentId), token, "EX", SEVEN_DAYS_SECONDS);
+    const key = userSessionsKey(userToken);
+    const value: UserSessionMeta = {
+      ...meta,
+      joinedAt: new Date().toISOString(),
+    };
+    await redis.hset(key, documentId, JSON.stringify(value));
+
+    const totalSessions = await redis.hlen(key);
+    if (totalSessions > MAX_USER_SESSIONS) {
+      const rawSessions = await redis.hgetall(key);
+      if (Object.keys(rawSessions).length <= MAX_USER_SESSIONS) {
+        await redis.expire(key, USER_SESSIONS_TTL);
+        return;
+      }
+
+      const parseJoinedAt = (value: string): number => {
+        try {
+          const joinedAt = (JSON.parse(value) as UserSessionMeta).joinedAt;
+          const parsed = Date.parse(joinedAt || "");
+          return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+        } catch {
+          return Number.NEGATIVE_INFINITY;
+        }
+      };
+
+      const sessionsToRemove = Object.entries(rawSessions)
+        .map(([docId, value]) => ({
+          docId,
+          joinedAt: parseJoinedAt(value),
+        }))
+        // Sort by newest-first, then remove entries beyond the max cap (oldest ones).
+        .sort((a, b) => b.joinedAt - a.joinedAt)
+        .slice(MAX_USER_SESSIONS)
+        .map(({ docId }) => docId);
+
+      if (sessionsToRemove.length > 0) {
+        await redis.hdel(key, ...sessionsToRemove);
+      }
+    }
+
+    await redis.expire(key, USER_SESSIONS_TTL);
   } catch {
-    // silently ignore
+    // silently ignore — session tracking is non-critical
   }
 }
 
-/**
- * Retrieve the stored JWT token for a document.
- */
-export async function getDocToken(
-  documentId: string,
-): Promise<string | null> {
+export async function getUserSessions(
+  userToken: string,
+): Promise<Array<{ documentId: string } & UserSessionMeta>> {
   try {
-    return await redis.get(docTokenKey(documentId));
+    const key = userSessionsKey(userToken);
+    const raw = await redis.hgetall(key);
+    if (!raw || Object.keys(raw).length === 0) return [];
+    await redis.expire(key, USER_SESSIONS_TTL); // sliding TTL
+
+    return Object.entries(raw)
+      .flatMap(([documentId, value]) => {
+        try {
+          return [
+            {
+              documentId,
+              ...(JSON.parse(value) as UserSessionMeta),
+            },
+          ];
+        } catch {
+          return [];
+        }
+      })
+      .sort((a, b) => {
+        const aTime = Date.parse(a.joinedAt);
+        const bTime = Date.parse(b.joinedAt);
+        const safeATime = Number.isNaN(aTime) ? Number.NEGATIVE_INFINITY : aTime;
+        const safeBTime = Number.isNaN(bTime) ? Number.NEGATIVE_INFINITY : bTime;
+        return safeBTime - safeATime;
+      });
+  } catch {
+    return [];
+  }
+}
+
+export async function hasUserAccess(
+  userToken: string,
+  documentId: string,
+): Promise<boolean> {
+  try {
+    const key = userSessionsKey(userToken);
+    const exists = await redis.hexists(key, documentId);
+    if (exists === 1) await redis.expire(key, USER_SESSIONS_TTL); // sliding TTL
+    return exists === 1;
+  } catch {
+    return false;
+  }
+}
+
+export async function getUserSessionMeta(
+  userToken: string,
+  documentId: string,
+): Promise<UserSessionMeta | null> {
+  try {
+    const key = userSessionsKey(userToken);
+    const raw = await redis.hget(key, documentId);
+    if (!raw) return null;
+    await redis.expire(key, USER_SESSIONS_TTL); // sliding TTL
+    return JSON.parse(raw) as UserSessionMeta;
   } catch {
     return null;
   }
