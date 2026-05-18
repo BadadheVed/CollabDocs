@@ -93,9 +93,12 @@ export default function ServiceStatus() {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
+      <button
+        type="button"
         onClick={() => setPinned((p) => !p)}
-        className={`w-2 h-2 rounded-full cursor-pointer ${dotColor}${
+        aria-label={pinned ? "Hide service status details" : "Show service status details"}
+        aria-pressed={pinned}
+        className={`w-2 h-2 rounded-full cursor-pointer p-0 border-0 ${dotColor}${
           both || isChecking ? " animate-pulse" : ""
         }`}
       />
