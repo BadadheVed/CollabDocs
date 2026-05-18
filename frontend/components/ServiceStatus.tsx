@@ -106,6 +106,7 @@ export default function ServiceStatus() {
             <button
               onClick={start}
               className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Refresh"
               title="Refresh"
             >
               <RefreshCw size={12} />
