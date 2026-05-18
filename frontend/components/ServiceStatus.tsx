@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 
 type Status = "checking" | "up" | "down";
@@ -22,16 +22,16 @@ export default function ServiceStatus() {
   const inFlightRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
     inFlightRef.current = false;
     setPolling(false);
-  };
+  }, []);
 
-  const doCheck = async () => {
+  const doCheck = useCallback(async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     attemptsRef.current += 1;
@@ -55,9 +55,9 @@ export default function ServiceStatus() {
     } finally {
       inFlightRef.current = false;
     }
-  };
+  }, [stop]);
 
-  const start = () => {
+  const start = useCallback(() => {
     stop();
     attemptsRef.current = 0;
     setAttempts(0);
@@ -66,10 +66,9 @@ export default function ServiceStatus() {
     setPolling(true);
     doCheck();
     intervalRef.current = setInterval(doCheck, POLL_INTERVAL);
-  };
+  }, [stop, doCheck]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { start(); return stop; }, []);
+  useEffect(() => { start(); return stop; }, [start, stop]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
