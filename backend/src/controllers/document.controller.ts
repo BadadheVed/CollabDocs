@@ -50,32 +50,10 @@ export const createDocument = async (req: Request, res: Response) => {
     const baseURL = process.env.FRONTEND_URL || "http://localhost:3000";
     const now = new Date();
 
-<<<<<<< HEAD
     const db = await MongoDBClient.getInstance();
     await db.updateOne(
       "documents",
       { _id: id },
-=======
-    const document = await prisma.document.create({
-      data: {
-        title,
-        docId,
-        pin,
-      },
-      select: {
-        id: true, // UUID (used for WebSocket room)
-        title: true,
-        docId: true, // 9-digit numeric code
-        pin: true, // 4-digit access code
-        createdAt: true,
-      },
-    });
-
-    const joinLink = `${baseURL}/join?docId=${document.docId}`;
-
-    // Generate JWT token for document access
-    const token = jwt.sign(
->>>>>>> main
       {
         $set: {
           _id: id,
@@ -226,7 +204,6 @@ export const saveDocument = async (req: Request, res: Response) => {
 
       await uploadToS3(s3Key, { content });
 
-<<<<<<< HEAD
       const now = new Date();
       const db = await MongoDBClient.getInstance();
       await db.updateOne(
@@ -234,14 +211,6 @@ export const saveDocument = async (req: Request, res: Response) => {
         { _id: decoded.documentId },
         { $set: { s3Path: s3Key, updatedAt: now } },
       );
-=======
-      // Update DB with content and s3Path
-      const document = await prisma.document.update({
-        where: { id: decoded.documentId },
-        data: { s3Path: s3Key },
-        select: { id: true, title: true, updatedAt: true, s3Path: true },
-      });
->>>>>>> main
 
       await setCachedContent(decoded.documentId, JSON.stringify(content));
 
