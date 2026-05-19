@@ -26,8 +26,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { useState } from "react";
+import ServiceStatus from "@/components/ServiceStatus";
 import { api } from "@/lib/api";
-import { addSessionToCookie } from "@/lib/sessions";
+import { trackSessionFromJoin } from "@/lib/sessions";
 import { DocumentCreatedModal } from "@/components/DocumentCreatedModal";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -76,7 +77,7 @@ export default function Home() {
     try {
       const docTitle = title;
       const response = await api.createDocument(title, creatorName);
-      addSessionToCookie({
+      trackSessionFromJoin({
         documentId: response.id,
         token: response.token,
         title: docTitle,
@@ -161,6 +162,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <ServiceStatus />
       <div className="container mx-auto px-4 py-12 md:py-20">
         {/* Hero Section */}
         <motion.div

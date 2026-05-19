@@ -3,7 +3,6 @@ import * as Y from "yjs";
 import chalk from "chalk";
 import dotenv from "dotenv";
 import { validateJoinAccess, validateToken } from "./auth";
-import { activeWsConnections } from "./middleware/index";
 import { register } from "./middleware/index";
 dotenv.config();
 
@@ -164,6 +163,14 @@ const server = new Server({
   },
 
   async onRequest({ request, response }) {
+    // After we write a response, patch writeHead/write to no-ops so Hocuspocus
+    // can't double-write headers and throw ERR_HTTP_HEADERS_SENT.
+    const markHandled = () => {
+      (response as any).writeHead = () => response;
+      (response as any).write = () => true;
+      (response as any).end = () => response;
+    };
+
     // Check if this is a WebSocket upgrade request FIRST
     const upgradeHeader = request.headers["upgrade"];
     if (upgradeHeader && upgradeHeader.toLowerCase() === "websocket") {
@@ -179,6 +186,7 @@ const server = new Server({
         "Access-Control-Allow-Headers": "Content-Type",
       });
       response.end();
+      markHandled();
       return;
     }
 
@@ -206,6 +214,7 @@ const server = new Server({
           2
         )
       );
+      markHandled();
       return;
     }
 
@@ -227,6 +236,7 @@ const server = new Server({
           ),
         })
       );
+      markHandled();
       return;
     }
 
@@ -239,6 +249,7 @@ const server = new Server({
           "Access-Control-Allow-Origin": "*",
         });
         response.end(JSON.stringify({ error: "Room ID required" }));
+        markHandled();
         return;
       }
 
@@ -266,6 +277,7 @@ const server = new Server({
         });
         response.end(JSON.stringify({ error: "Internal server error" }));
       }
+      markHandled();
       return;
     }
 
@@ -286,6 +298,7 @@ const server = new Server({
         });
         response.end(JSON.stringify({ error: "Internal server error" }));
       }
+      markHandled();
       return;
     }
 
@@ -317,6 +330,7 @@ const server = new Server({
         });
         response.end(JSON.stringify({ error: "Internal server error" }));
       }
+      markHandled();
       return;
     }
 

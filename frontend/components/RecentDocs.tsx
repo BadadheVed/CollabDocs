@@ -6,27 +6,21 @@ import { motion } from "framer-motion";
 import { Clock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api, RecentDoc } from "@/lib/api";
-import { getSessionsFromCookie } from "@/lib/sessions";
+import { getUserSessions, SessionEntry } from "@/lib/sessions";
 
 const SESSIONS_PER_PAGE = 3;
 
 export default function RecentDocs() {
   const router = useRouter();
-  const [docs, setDocs] = useState<RecentDoc[]>([]);
+  const [docs, setDocs] = useState<SessionEntry[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const sessions = getSessionsFromCookie();
-      if (sessions.length === 0) {
-        setLoading(false);
-        return;
-      }
       try {
-        const recent = await api.getRecentDocs(sessions.map((s) => s.token));
-        setDocs(recent);
+        const sessions = await getUserSessions();
+        setDocs(sessions);
       } catch {
         // Non-critical — silently fail
       } finally {

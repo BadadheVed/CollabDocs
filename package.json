@@ -7,7 +7,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:ws": "cd hocuspocus-server && npm run dev",
-    "setup": "cd backend && npx prisma db push && npx prisma generate"
+    "setup": "cd backend && npm install"
   },
   "keywords": ["collaborative", "editor", "websocket", "tiptap"],
   "author": "",

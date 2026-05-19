@@ -71,6 +71,8 @@ import {
   FileDown,
   Info,
   Upload,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   extractTextFromPDF,
@@ -489,6 +491,25 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isContentDirty, setIsContentDirty] = useState(false);
+  const [copiedField, setCopiedField] = useState<"id" | "pin" | null>(null);
+  const hasLoadedRef = useRef(false);
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+
+  const { docId: tokenDocId, pin: tokenPin } = (() => {
+    try {
+      const payload = JSON.parse(atob(user.token.split(".")[1]));
+      return { docId: payload.docId as number | undefined, pin: payload.pin as number | undefined };
+    } catch {
+      return { docId: undefined, pin: undefined };
+    }
+  })();
+
+  const copyToClipboard = (text: string, field: "id" | "pin") => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -677,6 +698,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     },
     [provider, isProviderReady],
   );
+
+  // Keep editorRef in sync so async callbacks always use the current editor instance
+  editorRef.current = editor ?? null;
+
   useEffect(() => {
     return () => {
       editor?.destroy();
@@ -695,9 +720,11 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     return () => clearInterval(interval);
   }, [isContentDirty, editor, user?.token]);
 
-  // Load document content from S3 once the editor and WebSocket are ready
+  // Load document content from S3 once the editor and WebSocket are both ready
   useEffect(() => {
     if (!isProviderReady || !editor || !user?.token) return;
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
 
     const loadFromS3 = async () => {
       const API_BASE_URL =
@@ -707,17 +734,27 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           token: user.token,
         });
         if (loadResp.data.content) {
-          editor.commands.setContent(loadResp.data.content);
-          setIsContentDirty(false);
-          toast.info("Document loaded from cloud storage.");
+          const liveEditor = editorRef.current;
+          if (!liveEditor) return;
+          const currentContent = liveEditor.getJSON();
+          const hasContent = currentContent.content &&
+            currentContent.content.length > 0 &&
+            (currentContent.content.length > 1 ||
+             (currentContent.content[0]?.content && currentContent.content[0].content.length > 0));
+
+          if (!hasContent) {
+            liveEditor.commands.setContent(loadResp.data.content);
+            setIsContentDirty(false);
+            toast.info("Document loaded from cloud storage.");
+          }
         }
       } catch (error) {
-        console.error("Failed to load document from S3:", error);
+        console.error("Failed to load document:", error);
       }
     };
 
     loadFromS3();
-  }, [isProviderReady]); // Runs once when editor + WebSocket are both ready
+  }, [isProviderReady, editor]); // editor added so effect re-runs if it was null when isProviderReady first fired
 
   // PDF Import Handler
   const handleImportPDF = async (
@@ -910,7 +947,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
 
     try {
       setIsSaving(true);
-      const content = editor.getHTML();
+      const content = editor.getJSON();
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
@@ -962,6 +999,32 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           <h1 className="text-lg font-semibold text-gray-900 truncate max-w-md">
             {documentTitle}
           </h1>
+          {tokenDocId !== undefined && (
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
+              <span className="text-xs text-gray-400">ID</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">{tokenDocId}</span>
+              <button
+                onClick={() => copyToClipboard(String(tokenDocId), "id")}
+                className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Copy Document ID"
+              >
+                {copiedField === "id" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </button>
+            </div>
+          )}
+          {tokenPin !== undefined && (
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
+              <span className="text-xs text-gray-400">PIN</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">{tokenPin}</span>
+              <button
+                onClick={() => copyToClipboard(String(tokenPin), "pin")}
+                className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Copy PIN"
+              >
+                {copiedField === "pin" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="relative group flex items-center">
               <span
