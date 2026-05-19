@@ -307,8 +307,11 @@ export const getSessionToken = async (req: Request, res: Response) => {
       return res.status(503).json({ message: "Session metadata unavailable" });
     }
 
+    const db = await MongoDBClient.getInstance();
+    const document = await db.getOne<MongoDocument>("documents", { _id: documentId });
+
     const token = jwt.sign(
-      { documentId, docId: meta.docId, title: meta.title },
+      { documentId, docId: meta.docId, title: meta.title, pin: document?.pin },
       JWT_SECRET,
       { expiresIn: "24h" },
     );

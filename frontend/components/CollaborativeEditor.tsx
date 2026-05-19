@@ -71,6 +71,8 @@ import {
   FileDown,
   Info,
   Upload,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   extractTextFromPDF,
@@ -489,8 +491,25 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isContentDirty, setIsContentDirty] = useState(false);
+  const [copiedField, setCopiedField] = useState<"id" | "pin" | null>(null);
   const hasLoadedRef = useRef(false);
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+
+  const { docId: tokenDocId, pin: tokenPin } = (() => {
+    try {
+      const payload = JSON.parse(atob(user.token.split(".")[1]));
+      return { docId: payload.docId as number | undefined, pin: payload.pin as number | undefined };
+    } catch {
+      return { docId: undefined, pin: undefined };
+    }
+  })();
+
+  const copyToClipboard = (text: string, field: "id" | "pin") => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -980,6 +999,32 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           <h1 className="text-lg font-semibold text-gray-900 truncate max-w-md">
             {documentTitle}
           </h1>
+          {tokenDocId !== undefined && (
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
+              <span className="text-xs text-gray-400">ID</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">{tokenDocId}</span>
+              <button
+                onClick={() => copyToClipboard(String(tokenDocId), "id")}
+                className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Copy Document ID"
+              >
+                {copiedField === "id" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </button>
+            </div>
+          )}
+          {tokenPin !== undefined && (
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
+              <span className="text-xs text-gray-400">PIN</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">{tokenPin}</span>
+              <button
+                onClick={() => copyToClipboard(String(tokenPin), "pin")}
+                className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Copy PIN"
+              >
+                {copiedField === "pin" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="relative group flex items-center">
               <span
