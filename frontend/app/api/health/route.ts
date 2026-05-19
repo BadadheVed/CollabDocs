@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
-const WS_API_URL = process.env.NEXT_PUBLIC_WS_API_URL || "http://localhost:1235";
+const WS_API_URL = process.env.NEXT_PUBLIC_WS_API_URL || "http://localhost:1234";
 
 export async function GET() {
   const [backendRes, wsRes] = await Promise.allSettled([

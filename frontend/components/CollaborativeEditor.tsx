@@ -714,7 +714,6 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
         const loadResp = await axios.post(`${API_BASE_URL}/docs/load`, {
           token: user.token,
         });
-        console.log("[LOAD] response:", loadResp.data.source, "| content present:", !!loadResp.data.content);
         if (loadResp.data.content) {
           const liveEditor = editorRef.current;
           if (!liveEditor) return;
@@ -724,7 +723,6 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
             (currentContent.content.length > 1 ||
              (currentContent.content[0]?.content && currentContent.content[0].content.length > 0));
 
-          console.log("[LOAD] editor hasContent:", hasContent, "| nodes:", currentContent.content?.length);
           if (!hasContent) {
             liveEditor.commands.setContent(loadResp.data.content);
             setIsContentDirty(false);
@@ -732,7 +730,7 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           }
         }
       } catch (error) {
-        console.error("[LOAD] Failed to load document:", error);
+        console.error("Failed to load document:", error);
       }
     };
 
