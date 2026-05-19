@@ -4,6 +4,8 @@ import { RefreshCw } from "lucide-react";
 
 type Status = "checking" | "up" | "down";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+const WS_API_URL = process.env.NEXT_PUBLIC_WS_API_URL || "http://localhost:1235";
 const MAX_ATTEMPTS = 10;
 const POLL_INTERVAL = 5_000;
 
