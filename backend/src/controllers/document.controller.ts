@@ -70,11 +70,9 @@ export const createDocument = async (req: Request, res: Response) => {
 
     const joinLink = `${baseURL}/join?docId=${docId}`;
 
-    const token = jwt.sign(
-      { documentId: id, docId, pin, title },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+    const token = jwt.sign({ documentId: id, docId, pin, title }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     if (name) await addDocParticipant(id, name);
     const participants = await getDocParticipants(id);
@@ -246,22 +244,17 @@ export const loadDocument = async (req: Request, res: Response) => {
       if (cached && cached.length > 0) {
         try {
           const parsedContent = JSON.parse(cached);
-          return res.status(200).json({ source: "redis", content: parsedContent });
+          return res
+            .status(200)
+            .json({ source: "redis", content: parsedContent });
         } catch {
           await deleteCachedContent(decoded.documentId);
         }
       }
 
-<<<<<<< HEAD
       const db = await MongoDBClient.getInstance();
       const document = await db.getOne<MongoDocument>("documents", {
         _id: decoded.documentId,
-=======
-      // 2. Cache miss — check DB for s3Path
-      const document = await prisma.document.findUnique({
-        where: { id: decoded.documentId },
-        select: { id: true, title: true, s3Path: true },
->>>>>>> main
       });
 
       if (!document) {
@@ -272,20 +265,15 @@ export const loadDocument = async (req: Request, res: Response) => {
         const s3Data = await downloadFromS3(document.s3Path);
         if (s3Data) {
           const content = (s3Data as any).content ?? null;
-          if (content) await setCachedContent(decoded.documentId, JSON.stringify(content));
+          if (content)
+            await setCachedContent(decoded.documentId, JSON.stringify(content));
           return res.status(200).json({ source: "s3", content });
         }
       }
 
-<<<<<<< HEAD
       return res.status(200).json({ source: "none", content: null });
     } catch (jwtError: any) {
       console.error("[LOAD] JWT error:", jwtError?.message);
-=======
-      // No content found — document hasn't been saved to S3 yet
-      return res.status(200).json({ source: "none", content: null });
-    } catch (jwtError) {
->>>>>>> main
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
@@ -316,12 +304,16 @@ export const getSessionToken = async (req: Request, res: Response) => {
 
     const meta = await getUserSessionMeta(userToken, documentId);
     if (!meta || typeof meta.docId !== "number" || !meta.title) {
-      console.warn(`getSessionToken: session metadata missing for document ${documentId}`);
+      console.warn(
+        `getSessionToken: session metadata missing for document ${documentId}`,
+      );
       return res.status(503).json({ message: "Session metadata unavailable" });
     }
 
     const db = await MongoDBClient.getInstance();
-    const document = await db.getOne<MongoDocument>("documents", { _id: documentId });
+    const document = await db.getOne<MongoDocument>("documents", {
+      _id: documentId,
+    });
 
     const token = jwt.sign(
       { documentId, docId: meta.docId, title: meta.title, pin: document?.pin },
