@@ -3,7 +3,6 @@ import * as Y from "yjs";
 import chalk from "chalk";
 import dotenv from "dotenv";
 import { validateJoinAccess, validateToken } from "./auth";
-import { activeWsConnections } from "./middleware/index";
 import { register } from "./middleware/index";
 dotenv.config();
 
@@ -169,6 +168,7 @@ const server = new Server({
     const markHandled = () => {
       (response as any).writeHead = () => response;
       (response as any).write = () => true;
+      (response as any).end = () => response;
     };
 
     // Check if this is a WebSocket upgrade request FIRST
