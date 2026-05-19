@@ -50,10 +50,32 @@ export const createDocument = async (req: Request, res: Response) => {
     const baseURL = process.env.FRONTEND_URL || "http://localhost:3000";
     const now = new Date();
 
+<<<<<<< HEAD
     const db = await MongoDBClient.getInstance();
     await db.updateOne(
       "documents",
       { _id: id },
+=======
+    const document = await prisma.document.create({
+      data: {
+        title,
+        docId,
+        pin,
+      },
+      select: {
+        id: true, // UUID (used for WebSocket room)
+        title: true,
+        docId: true, // 9-digit numeric code
+        pin: true, // 4-digit access code
+        createdAt: true,
+      },
+    });
+
+    const joinLink = `${baseURL}/join?docId=${document.docId}`;
+
+    // Generate JWT token for document access
+    const token = jwt.sign(
+>>>>>>> main
       {
         $set: {
           _id: id,
@@ -204,6 +226,7 @@ export const saveDocument = async (req: Request, res: Response) => {
 
       await uploadToS3(s3Key, { content });
 
+<<<<<<< HEAD
       const now = new Date();
       const db = await MongoDBClient.getInstance();
       await db.updateOne(
@@ -211,6 +234,14 @@ export const saveDocument = async (req: Request, res: Response) => {
         { _id: decoded.documentId },
         { $set: { s3Path: s3Key, updatedAt: now } },
       );
+=======
+      // Update DB with content and s3Path
+      const document = await prisma.document.update({
+        where: { id: decoded.documentId },
+        data: { s3Path: s3Key },
+        select: { id: true, title: true, updatedAt: true, s3Path: true },
+      });
+>>>>>>> main
 
       await setCachedContent(decoded.documentId, JSON.stringify(content));
 
@@ -252,9 +283,16 @@ export const loadDocument = async (req: Request, res: Response) => {
         }
       }
 
+<<<<<<< HEAD
       const db = await MongoDBClient.getInstance();
       const document = await db.getOne<MongoDocument>("documents", {
         _id: decoded.documentId,
+=======
+      // 2. Cache miss — check DB for s3Path
+      const document = await prisma.document.findUnique({
+        where: { id: decoded.documentId },
+        select: { id: true, title: true, s3Path: true },
+>>>>>>> main
       });
 
       if (!document) {
@@ -270,9 +308,15 @@ export const loadDocument = async (req: Request, res: Response) => {
         }
       }
 
+<<<<<<< HEAD
       return res.status(200).json({ source: "none", content: null });
     } catch (jwtError: any) {
       console.error("[LOAD] JWT error:", jwtError?.message);
+=======
+      // No content found — document hasn't been saved to S3 yet
+      return res.status(200).json({ source: "none", content: null });
+    } catch (jwtError) {
+>>>>>>> main
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
