@@ -7,6 +7,7 @@ import { generateS3Key, uploadToS3, downloadFromS3 } from "@/utils/s3";
 import {
   getCachedContent,
   setCachedContent,
+  deleteCachedContent,
   addDocParticipant,
   getDocParticipants,
   addUserSession,
@@ -198,9 +199,14 @@ export const saveDocument = async (req: Request, res: Response) => {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
+      console.log("[SAVE] documentId:", decoded.documentId, "| title:", decoded.title);
+      console.log("[SAVE] content nodes:", content?.content?.length ?? "N/A");
 
       const s3Key = generateS3Key(decoded.title, decoded.documentId);
+      console.log("[SAVE] S3 key:", s3Key, "| BUCKET:", process.env.AWS_S3_BUCKET || "UNDEFINED");
+
       await uploadToS3(s3Key, { content });
+      console.log("[SAVE] S3 upload done");
 
       const now = new Date();
       const db = await MongoDBClient.getInstance();
@@ -209,8 +215,10 @@ export const saveDocument = async (req: Request, res: Response) => {
         { _id: decoded.documentId },
         { $set: { s3Path: s3Key, updatedAt: now } },
       );
+      console.log("[SAVE] MongoDB updated");
 
-      await setCachedContent(decoded.documentId, content);
+      await setCachedContent(decoded.documentId, JSON.stringify(content));
+      console.log("[SAVE] Redis cached");
 
       return res.status(200).json({
         message: "Document saved successfully",
@@ -219,7 +227,8 @@ export const saveDocument = async (req: Request, res: Response) => {
         savedAt: now,
         s3Path: s3Key,
       });
-    } catch (jwtError) {
+    } catch (jwtError: any) {
+      console.error("[SAVE] JWT error:", jwtError?.message);
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
@@ -238,16 +247,26 @@ export const loadDocument = async (req: Request, res: Response) => {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
+      console.log("[LOAD] documentId:", decoded.documentId);
 
       const cached = await getCachedContent(decoded.documentId);
+      console.log("[LOAD] Redis cached:", cached ? `string(${cached.length})` : "null");
       if (cached && cached.length > 0) {
-        return res.status(200).json({ source: "redis", content: cached });
+        try {
+          const parsedContent = JSON.parse(cached);
+          console.log("[LOAD] returning from Redis, nodes:", parsedContent?.content?.length ?? "N/A");
+          return res.status(200).json({ source: "redis", content: parsedContent });
+        } catch {
+          console.warn("[LOAD] Corrupted Redis entry, evicting and falling through to S3");
+          await deleteCachedContent(decoded.documentId);
+        }
       }
 
       const db = await MongoDBClient.getInstance();
       const document = await db.getOne<MongoDocument>("documents", {
         _id: decoded.documentId,
       });
+      console.log("[LOAD] MongoDB doc s3Path:", document?.s3Path ?? "none");
 
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
@@ -255,15 +274,19 @@ export const loadDocument = async (req: Request, res: Response) => {
 
       if (document.s3Path) {
         const s3Data = await downloadFromS3(document.s3Path);
+        console.log("[LOAD] S3 data:", s3Data ? "found" : "null");
         if (s3Data) {
           const content = (s3Data as any).content ?? null;
-          if (content) await setCachedContent(decoded.documentId, content);
+          console.log("[LOAD] returning from S3, nodes:", (content as any)?.content?.length ?? "N/A");
+          if (content) await setCachedContent(decoded.documentId, JSON.stringify(content));
           return res.status(200).json({ source: "s3", content });
         }
       }
 
+      console.log("[LOAD] no content found, returning null");
       return res.status(200).json({ source: "none", content: null });
-    } catch (jwtError) {
+    } catch (jwtError: any) {
+      console.error("[LOAD] JWT error:", jwtError?.message);
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
