@@ -7,6 +7,7 @@ import { generateS3Key, uploadToS3, downloadFromS3 } from "@/utils/s3";
 import {
   getCachedContent,
   setCachedContent,
+  deleteCachedContent,
   addDocParticipant,
   getDocParticipants,
   addUserSession,
@@ -200,6 +201,7 @@ export const saveDocument = async (req: Request, res: Response) => {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
       const s3Key = generateS3Key(decoded.title, decoded.documentId);
+
       await uploadToS3(s3Key, { content });
 
       const now = new Date();
@@ -210,7 +212,7 @@ export const saveDocument = async (req: Request, res: Response) => {
         { $set: { s3Path: s3Key, updatedAt: now } },
       );
 
-      await setCachedContent(decoded.documentId, content);
+      await setCachedContent(decoded.documentId, JSON.stringify(content));
 
       return res.status(200).json({
         message: "Document saved successfully",
@@ -219,7 +221,8 @@ export const saveDocument = async (req: Request, res: Response) => {
         savedAt: now,
         s3Path: s3Key,
       });
-    } catch (jwtError) {
+    } catch (jwtError: any) {
+      console.error("[SAVE] JWT error:", jwtError?.message);
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {
@@ -241,7 +244,12 @@ export const loadDocument = async (req: Request, res: Response) => {
 
       const cached = await getCachedContent(decoded.documentId);
       if (cached && cached.length > 0) {
-        return res.status(200).json({ source: "redis", content: cached });
+        try {
+          const parsedContent = JSON.parse(cached);
+          return res.status(200).json({ source: "redis", content: parsedContent });
+        } catch {
+          await deleteCachedContent(decoded.documentId);
+        }
       }
 
       const db = await MongoDBClient.getInstance();
@@ -257,13 +265,14 @@ export const loadDocument = async (req: Request, res: Response) => {
         const s3Data = await downloadFromS3(document.s3Path);
         if (s3Data) {
           const content = (s3Data as any).content ?? null;
-          if (content) await setCachedContent(decoded.documentId, content);
+          if (content) await setCachedContent(decoded.documentId, JSON.stringify(content));
           return res.status(200).json({ source: "s3", content });
         }
       }
 
       return res.status(200).json({ source: "none", content: null });
-    } catch (jwtError) {
+    } catch (jwtError: any) {
+      console.error("[LOAD] JWT error:", jwtError?.message);
       return res.status(401).json({ message: "Invalid or expired token" });
     }
   } catch (error) {

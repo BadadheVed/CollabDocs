@@ -489,6 +489,8 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isContentDirty, setIsContentDirty] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
 
   const ydoc = useMemo(() => new Y.Doc(), []);
 
@@ -677,6 +679,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     },
     [provider, isProviderReady],
   );
+
+  // Keep editorRef in sync so async callbacks always use the current editor instance
+  editorRef.current = editor ?? null;
+
   useEffect(() => {
     return () => {
       editor?.destroy();
@@ -695,9 +701,11 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
     return () => clearInterval(interval);
   }, [isContentDirty, editor, user?.token]);
 
-  // Load document content from S3 once the editor and WebSocket are ready
+  // Load document content from S3 once the editor and WebSocket are both ready
   useEffect(() => {
     if (!isProviderReady || !editor || !user?.token) return;
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
 
     const loadFromS3 = async () => {
       const API_BASE_URL =
@@ -707,27 +715,27 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           token: user.token,
         });
         if (loadResp.data.content) {
-          // Only load from S3 if editor is truly empty (no meaningful content)
-          // This preserves real-time collaborative changes while allowing saved content to load
-          const currentContent = editor.getJSON();
-          const hasContent = currentContent.content && 
-            currentContent.content.length > 0 && 
-            (currentContent.content.length > 1 || 
+          const liveEditor = editorRef.current;
+          if (!liveEditor) return;
+          const currentContent = liveEditor.getJSON();
+          const hasContent = currentContent.content &&
+            currentContent.content.length > 0 &&
+            (currentContent.content.length > 1 ||
              (currentContent.content[0]?.content && currentContent.content[0].content.length > 0));
-          
+
           if (!hasContent) {
-            editor.commands.setContent(loadResp.data.content);
+            liveEditor.commands.setContent(loadResp.data.content);
             setIsContentDirty(false);
             toast.info("Document loaded from cloud storage.");
           }
         }
       } catch (error) {
-        console.error("Failed to load document from S3:", error);
+        console.error("Failed to load document:", error);
       }
     };
 
     loadFromS3();
-  }, [isProviderReady]); // Runs once when editor + WebSocket are both ready
+  }, [isProviderReady, editor]); // editor added so effect re-runs if it was null when isProviderReady first fired
 
   // PDF Import Handler
   const handleImportPDF = async (

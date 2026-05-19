@@ -39,15 +39,12 @@ export default function ServiceStatus() {
     setAttempts(n);
 
     try {
-      const [backendOk, wsOk] = await Promise.all([
-        fetch(`${BACKEND_URL}/health`)
-          .then((r) => r.ok)
-          .catch(() => false),
-        fetch(`${WS_API_URL}/health`)
-          .then((r) => r.ok)
-          .catch(() => false),
-      ]);
+      const data = await fetch("/api/health", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => ({ backend: "down", ws: "down" }));
 
+      const backendOk = data.backend === "up";
+      const wsOk = data.ws === "up";
       setBackend(backendOk ? "up" : "down");
       setWs(wsOk ? "up" : "down");
 
@@ -68,11 +65,17 @@ export default function ServiceStatus() {
     intervalRef.current = setInterval(doCheck, POLL_INTERVAL);
   }, [stop, doCheck]);
 
-  useEffect(() => { start(); return stop; }, [start, stop]);
+  useEffect(() => {
+    start();
+    return stop;
+  }, [start, stop]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setPinned(false);
       }
     };
@@ -86,10 +89,10 @@ export default function ServiceStatus() {
   const dotColor = both
     ? "bg-green-500"
     : none
-    ? "bg-red-500"
-    : isChecking
-    ? "bg-gray-300"
-    : "bg-yellow-400";
+      ? "bg-red-500"
+      : isChecking
+        ? "bg-gray-300"
+        : "bg-yellow-400";
 
   const open = hovered || pinned;
 
@@ -103,7 +106,9 @@ export default function ServiceStatus() {
       <button
         type="button"
         onClick={() => setPinned((p) => !p)}
-        aria-label={pinned ? "Hide service status details" : "Show service status details"}
+        aria-label={
+          pinned ? "Hide service status details" : "Show service status details"
+        }
         aria-pressed={pinned}
         className={`w-2 h-2 rounded-full cursor-pointer p-0 border-0 ${dotColor}${
           both || isChecking ? " animate-pulse" : ""
@@ -112,7 +117,9 @@ export default function ServiceStatus() {
       {open && (
         <div className="absolute top-4 right-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-48">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-600">Services</span>
+            <span className="text-xs font-semibold text-gray-600">
+              Services
+            </span>
             <button
               onClick={start}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -138,14 +145,14 @@ function Row({ label, status }: { label: string; status: Status }) {
     status === "up"
       ? "bg-green-500"
       : status === "down"
-      ? "bg-red-500"
-      : "bg-gray-300 animate-pulse";
+        ? "bg-red-500"
+        : "bg-gray-300 animate-pulse";
   const text =
     status === "up"
       ? "text-green-600"
       : status === "down"
-      ? "text-red-500"
-      : "text-gray-400";
+        ? "text-red-500"
+        : "text-gray-400";
   const word = status === "up" ? "Online" : status === "down" ? "Offline" : "…";
   return (
     <div className="flex items-center gap-2 py-0.5">
