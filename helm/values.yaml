@@ -1,0 +1,71 @@
+# ─── Images ───────────────────────────────────────────────────────────────────
+images:
+  backend:
+    repository: ved104/collabdocsapp-backend
+    tag: latest
+  frontend:
+    repository: ved104/collabdocsapp-frontend
+    tag: latest
+  websocket:
+    repository: ved104/collabdocsapp-hocuspocus
+    tag: latest
+  wsProxy:
+    repository: ved104/ws-proxy
+    tag: latest
+  postgres:
+    repository: postgres
+    tag: "15"
+
+imagePullPolicy: Always
+
+# ─── Backend ──────────────────────────────────────────────────────────────────
+backend:
+  replicas: 1
+  # Change this in production!
+  jwtSecret: "change-me-in-production"
+  port: 8080
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+frontend:
+  replicas: 1
+  port: 3000
+  # After first `helm install`, run:
+  #   kubectl get svc <release>-loadbalancer
+  # then set these to the external address and do `helm upgrade`.
+  publicBackendUrl: ""   # e.g. http://<elb>:3000/api/proxy
+  publicWsUrl: ""        # e.g. ws://<elb>:3001
+
+# ─── WebSocket (Hocuspocus) ───────────────────────────────────────────────────
+websocket:
+  port: 1234
+  resources:
+    limits:
+      cpu: "1500m"
+    requests:
+      cpu: "1000m"
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 30
+
+# ─── WS Proxy sidecar (runs inside the frontend pod) ─────────────────────────
+wsProxy:
+  port: 3001
+
+# ─── PostgreSQL (in-cluster, development only) ────────────────────────────────
+# Set enabled: false and provide secrets.databaseUrl for production (e.g. RDS).
+postgres:
+  enabled: true
+  port: 5432
+  database: collabdocsdb
+  username: postgres
+  password: postgres
+
+# ─── Secrets (plain text — Helm base64-encodes them into the Secret) ──────────
+secrets:
+  # Leave empty to auto-generate from postgres.* values (when postgres.enabled).
+  # Set explicitly when using an external database (postgres.enabled: false).
+  databaseUrl: ""
+  # Required for multi-pod WebSocket sync.
+  # Example: redis://my-redis.cache.amazonaws.com:6379
+  redisUrl: ""

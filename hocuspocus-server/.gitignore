@@ -34,6 +34,9 @@ coverage/
 # Test / Jest
 jest-cache/
 jest-test-results.json
+src/__tests__/
+jest.config.js
+tsconfig.test.json
 
 # Optional: if using Docker
 docker-compose.override.yml

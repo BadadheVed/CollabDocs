@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-ws
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.websocket.hpa.minReplicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-ws
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-ws
+    spec:
+      containers:
+      - name: websocket
+        image: {{ .Values.images.websocket.repository }}:{{ .Values.images.websocket.tag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.websocket.port }}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "collabdocs.secretName" . }}
+              key: db_url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "collabdocs.secretName" . }}
+              key: redis_url
+        - name: PORT
+          value: {{ .Values.websocket.port | quote }}
+        - name: BACKEND_URL
+          value: "http://{{ .Release.Name }}-be:{{ .Values.backend.port }}"
+        resources:
+          {{- toYaml .Values.websocket.resources | nindent 10 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Release.Name }}-ws
+            topologyKey: "kubernetes.io/hostname"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-ws
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-ws
+  ports:
+  - port: {{ .Values.websocket.port }}
+    targetPort: {{ .Values.websocket.port }}

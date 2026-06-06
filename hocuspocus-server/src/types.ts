@@ -1,13 +1,12 @@
 import type { IncomingHttpHeaders } from 'http';
 
-export interface AuthToken {
-  id: string;
-  username: string;
-  email: string;
+export interface ConnectedUser {
+  name: string;
+  token: string;
 }
 
 export interface ConnectionContext {
-  user?: AuthToken;
+  user?: ConnectedUser;
 }
 
 export interface Connection {

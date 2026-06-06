@@ -1,0 +1,20 @@
+CollabDocs deployed! 🎉
+
+1. Wait for all pods to be Running:
+   kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+2. Get the external LoadBalancer address:
+   kubectl get svc {{ .Release.Name }}-loadbalancer
+
+3. Once the ADDRESS is assigned, upgrade with the real public URLs:
+   helm upgrade {{ .Release.Name }} . \
+     --set frontend.publicBackendUrl="http://<ADDRESS>:3000/api/proxy" \
+     --set frontend.publicWsUrl="ws://<ADDRESS>:3001" \
+     --set secrets.redisUrl="redis://<your-redis>:6379"
+
+4. Verify WebSocket pods are on different nodes (podAntiAffinity):
+   kubectl get pods -l app={{ .Release.Name }}-ws -o wide
+
+5. Health check:
+   kubectl port-forward svc/{{ .Release.Name }}-ws 1234
+   curl http://localhost:1234/health

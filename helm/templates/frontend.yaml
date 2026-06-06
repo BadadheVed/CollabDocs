@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-fe
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-fe
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-fe
+    spec:
+      containers:
+      - name: frontend
+        image: {{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.frontend.port }}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "collabdocs.secretName" . }}
+              key: db_url
+        - name: PORT
+          value: {{ .Values.frontend.port | quote }}
+        - name: NEXT_PUBLIC_BACKEND_URL
+          value: {{ .Values.frontend.publicBackendUrl | quote }}
+        - name: NEXT_PUBLIC_WS_URL
+          value: {{ .Values.frontend.publicWsUrl | quote }}
+        - name: BACKEND_API_URL
+          value: "http://{{ .Release.Name }}-be:{{ .Values.backend.port }}"
+        - name: WS_API_URL
+          value: "ws://{{ .Release.Name }}-ws:{{ .Values.websocket.port }}"
+        - name: CRON_HTTP_URL
+          value: "http://{{ .Release.Name }}-be:{{ .Values.backend.port }}"
+        - name: CRON_WS_URL
+          value: "ws://{{ .Release.Name }}-ws:{{ .Values.websocket.port }}"
+
+      - name: ws-proxy
+        image: {{ .Values.images.wsProxy.repository }}:{{ .Values.images.wsProxy.tag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.wsProxy.port }}
+        env:
+        - name: WS_TARGET
+          value: "ws://{{ .Release.Name }}-ws:{{ .Values.websocket.port }}"
+        - name: PORT
+          value: {{ .Values.wsProxy.port | quote }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-loadbalancer
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-fe
+  ports:
+  - name: http
+    port: {{ .Values.frontend.port }}
+    targetPort: {{ .Values.frontend.port }}
+  - name: ws
+    port: {{ .Values.wsProxy.port }}
+    targetPort: {{ .Values.wsProxy.port }}

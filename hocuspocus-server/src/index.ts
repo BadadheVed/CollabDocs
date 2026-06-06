@@ -1,15 +1,30 @@
 import { Server } from "@hocuspocus/server";
+import { Redis as HocuspocusRedis } from "@hocuspocus/extension-redis";
 import * as Y from "yjs";
 import chalk from "chalk";
 import dotenv from "dotenv";
+import IORedis from "ioredis";
 import { validateJoinAccess, validateToken } from "./auth";
 import { register } from "./middleware/index";
+import { RoomTracker } from "./redis/roomTracker";
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 1234);
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
-// Track active connections per room
-const roomConnections = new Map<string, Set<string>>();
+const redisClient = new IORedis(REDIS_URL, {
+  lazyConnect: true,
+  retryStrategy: (times) => Math.min(times * 100, 3000),
+});
+redisClient.on("error", (err) => console.error("[Redis] error:", err.message));
+redisClient.on("connect", () => console.log(chalk.green("✅ Redis connected")));
+
+const roomTracker = new RoomTracker(redisClient);
+
+// Per-pod map of socketId → documentName for graceful shutdown cleanup.
+// Each pod only knows its own connections — Redis Sets aggregate across all pods.
+const localConnections = new Map<string, string>();
+
 const connectionLogs: Array<{
   timestamp: string;
   event: string;
@@ -38,6 +53,23 @@ function logEvent(event: string, details: any = {}) {
  */
 const server = new Server({
   port: PORT,
+
+  extensions: [
+    new HocuspocusRedis({
+      // createClient is called twice internally — once for publish, once for
+      // subscribe. Each call must return a fresh IORedis instance because a
+      // connection in subscribe mode cannot issue regular commands.
+      createClient: () => {
+        const client = new IORedis(REDIS_URL, {
+          retryStrategy: (times) => Math.min(times * 100, 3000),
+        });
+        client.on("error", (err) =>
+          console.error("[HocuspocusRedis] pub/sub error:", err.message)
+        );
+        return client;
+      },
+    }),
+  ],
 
   async onAuthenticate(data) {
     const roomUUID = data.documentName;
@@ -109,13 +141,9 @@ const server = new Server({
   },
 
   async onConnect({ documentName, context, socketId }) {
-    //  activeWsConnections.inc();
-    if (!roomConnections.has(documentName)) {
-      roomConnections.set(documentName, new Set());
-    }
-    roomConnections.get(documentName)?.add(socketId);
-
-    const userCount = roomConnections.get(documentName)?.size || 0;
+    await roomTracker.trackConnection(documentName, socketId);
+    localConnections.set(socketId, documentName);
+    const userCount = await roomTracker.getRoomCount(documentName);
 
     console.log(
       chalk.green("🟢 Connected:"),
@@ -133,12 +161,9 @@ const server = new Server({
   },
 
   async onDisconnect({ documentName, context, socketId }) {
-    roomConnections.get(documentName)?.delete(socketId);
-    if (roomConnections.get(documentName)?.size === 0) {
-      roomConnections.delete(documentName);
-    }
-
-    const userCount = roomConnections.get(documentName)?.size || 0;
+    await roomTracker.untrackConnection(documentName, socketId);
+    localConnections.delete(socketId);
+    const userCount = await roomTracker.getRoomCount(documentName);
 
     console.log(
       chalk.red("🔴 Disconnected:"),
@@ -153,7 +178,6 @@ const server = new Server({
       socketId,
       userCount,
     });
-    //  activeWsConnections.dec();
   },
 
   async onLoadDocument({ documentName }) {
@@ -192,6 +216,8 @@ const server = new Server({
 
     // WebSocket connection logs - for debugging WS connections
     if (request.url === "/ws-logs" && request.method === "GET") {
+      const rooms = await roomTracker.getAllRooms();
+      const totalConnections = rooms.reduce((sum, r) => sum + r.userCount, 0);
       response.writeHead(200, {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -203,11 +229,8 @@ const server = new Server({
             totalEvents: connectionLogs.length,
             logs: connectionLogs,
             currentState: {
-              activeRooms: roomConnections.size,
-              totalConnections: Array.from(roomConnections.values()).reduce(
-                (sum, set) => sum + set.size,
-                0
-              ),
+              activeRooms: rooms.length,
+              totalConnections,
             },
           },
           null,
@@ -220,6 +243,8 @@ const server = new Server({
 
     // Health check endpoint
     if (request.url === "/health" && request.method === "GET") {
+      const rooms = await roomTracker.getAllRooms();
+      const totalConnections = rooms.reduce((sum, r) => sum + r.userCount, 0);
       response.writeHead(200, {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -229,11 +254,8 @@ const server = new Server({
           status: "ok",
           timestamp: new Date().toISOString(),
           uptime: process.uptime(),
-          activeRooms: roomConnections.size,
-          totalConnections: Array.from(roomConnections.values()).reduce(
-            (sum, set) => sum + set.size,
-            0
-          ),
+          activeRooms: rooms.length,
+          totalConnections,
         })
       );
       markHandled();
@@ -254,7 +276,7 @@ const server = new Server({
       }
 
       try {
-        const userCount = roomConnections.get(roomId)?.size || 0;
+        const userCount = await roomTracker.getRoomCount(roomId);
         response.writeHead(200, {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
@@ -302,15 +324,10 @@ const server = new Server({
       return;
     }
 
-    // Get all active rooms
+    // Get all active rooms — aggregates across all pods via Redis
     if (request.url === "/rooms" && request.method === "GET") {
       try {
-        const rooms = Array.from(roomConnections.entries()).map(
-          ([roomId, connections]) => ({
-            roomId,
-            userCount: connections.size,
-          })
-        );
+        const rooms = await roomTracker.getAllRooms();
         response.writeHead(200, {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
@@ -340,13 +357,31 @@ const server = new Server({
   },
 });
 
+// Graceful shutdown: remove this pod's connections from Redis before exiting.
+// Without this, a rolling update or crash leaves stale socketIds in ws:room:*
+// Sets, causing incorrect user counts until they're manually cleaned.
+async function shutdown(signal: string) {
+  console.log(chalk.yellow(`\n${signal} received — cleaning up ${localConnections.size} connections...`));
+  const cleanups = Array.from(localConnections.entries()).map(
+    ([socketId, documentName]) =>
+      roomTracker.untrackConnection(documentName, socketId)
+  );
+  await Promise.allSettled(cleanups);
+  await redisClient.disconnect();
+  console.log(chalk.green("✅ Graceful shutdown complete"));
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
 server.listen().then(() => {
   console.log(chalk.green(`✅ WebSocket server running on port ${PORT}`));
   console.log(chalk.cyan(`   ws://localhost:${PORT}`));
   console.log(chalk.gray(`\n📊 Debug Endpoints:`));
   console.log(chalk.gray(`   - GET /health (health check)`));
   console.log(chalk.gray(`   - GET /ws-logs (connection logs)`));
-  console.log(chalk.gray(`   - GET /rooms (all active rooms)`));
-  console.log(chalk.gray(`   - GET /room/{uuid} (specific room user count)`));
+  console.log(chalk.gray(`   - GET /rooms (all active rooms — cross-pod)`));
+  console.log(chalk.gray(`   - GET /room/{uuid} (specific room user count — cross-pod)`));
   console.log(chalk.gray(`   - GET /metrics (Prometheus metrics)\n`));
 });

@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-be
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-be
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-be
+    spec:
+      containers:
+      - name: backend
+        image: {{ .Values.images.backend.repository }}:{{ .Values.images.backend.tag }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.backend.port }}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "collabdocs.secretName" . }}
+              key: db_url
+        - name: JWT_SECRET
+          value: {{ .Values.backend.jwtSecret | quote }}
+        - name: FRONTEND_URL
+          value: "http://{{ .Release.Name }}-loadbalancer:{{ .Values.frontend.port }}"
+        - name: WS_URL
+          value: "http://{{ .Release.Name }}-ws:{{ .Values.websocket.port }}"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-be
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-be
+  ports:
+  - port: {{ .Values.backend.port }}
+    targetPort: {{ .Values.backend.port }}
