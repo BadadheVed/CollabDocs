@@ -45,7 +45,7 @@
     "html2pdf.js": "^0.12.1",
     "lucide-react": "^0.548.0",
     "mammoth": "^1.11.0",
-    "next": "14.2.5",
+    "next": "16.2.7",
     "pdfjs-dist": "^3.11.174",
     "prom-client": "^15.1.3",
     "react": "18.3.1",
