@@ -159,7 +159,6 @@ export default function RootLayout({
         {children}
         <Analytics />
         <ToasterProvider />
-        <Analytics />
       </body>
     </html>
   );
