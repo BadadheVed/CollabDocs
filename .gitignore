@@ -9,6 +9,8 @@ CLAUDE.md
 dist/
 build/
 out/
+*test*
+*jest*
 tmp/
 temp/
 aws*
