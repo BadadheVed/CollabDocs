@@ -505,10 +505,15 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   })();
 
   const copyToClipboard = (text: string, field: "id" | "pin") => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      })
+      .catch((err) => {
+        console.warn("Failed to copy to clipboard:", err);
+      });
   };
 
   const ydoc = useMemo(() => new Y.Doc(), []);
