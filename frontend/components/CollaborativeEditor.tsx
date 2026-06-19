@@ -497,18 +497,31 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
 
   const { docId: tokenDocId, pin: tokenPin } = (() => {
     try {
-      const payload = JSON.parse(atob(user.token.split(".")[1]));
-      return { docId: payload.docId as number | undefined, pin: payload.pin as number | undefined };
+      const base64Url = user.token.split(".")[1];
+      const base64 = base64Url
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(Math.ceil(base64Url.length / 4) * 4, "=");
+      const payload = JSON.parse(atob(base64));
+      return {
+        docId: typeof payload.docId === "number" ? payload.docId : undefined,
+        pin: typeof payload.pin === "number" ? payload.pin : undefined,
+      };
     } catch {
       return { docId: undefined, pin: undefined };
     }
   })();
 
   const copyToClipboard = (text: string, field: "id" | "pin") => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      })
+      .catch((err) => {
+        console.warn("Failed to copy to clipboard:", err);
+      });
   };
 
   const ydoc = useMemo(() => new Y.Doc(), []);
