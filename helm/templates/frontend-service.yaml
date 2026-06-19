@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: collabdocs-loadbalancer
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: collabdocs-fe
+  ports:
+  - name: http
+    port: {{ .Values.frontend.port }}
+    targetPort: {{ .Values.frontend.port }}
+  - name: ws
+    port: {{ .Values.frontend.wsProxyPort }}
+    targetPort: {{ .Values.frontend.wsProxyPort }}

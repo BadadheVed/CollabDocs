@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabdocs-be
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: collabdocs-be
+  template:
+    metadata:
+      labels:
+        app: collabdocs-be
+    spec:
+      containers:
+      - name: collabdocs-be
+        image: "{{ .Values.images.backend.repository }}:{{ .Values.images.backend.tag }}"
+        imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.backend.port }}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: collabdocs-secrets
+              key: db_url
+        - name: JWT_SECRET
+          value: {{ .Values.backend.jwtSecret | quote }}
+        - name: FRONTEND_URL
+          value: "http://collabdocs-loadbalancer:{{ .Values.frontend.port }}"
+        - name: WS_URL
+          value: "http://collabdocs-ws:{{ .Values.websocket.port }}"

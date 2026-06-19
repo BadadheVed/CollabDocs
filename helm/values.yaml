@@ -1,0 +1,47 @@
+images:
+  backend:
+    repository: ved104/collabdocsapp-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: ved104/collabdocsapp-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  websocket:
+    repository: ved104/collabdocsapp-hocuspocus
+    tag: latest
+    pullPolicy: IfNotPresent
+  wsProxy:
+    repository: ved104/ws-proxy
+    tag: latest
+    pullPolicy: IfNotPresent
+
+backend:
+  replicas: 1
+  port: 8080
+  jwtSecret: "1234"
+
+frontend:
+  replicas: 1
+  port: 3000
+  wsProxyPort: 3001
+  # Public load balancer hostname — update after ELB is provisioned
+  lbHostname: "a579d8c33b400483f9fa790f937592ca-1002122303.ap-south-1.elb.amazonaws.com"
+
+websocket:
+  replicas: 1
+  port: 1234
+  resources:
+    limits:
+      cpu: "1500m"
+    requests:
+      cpu: "1000m"
+  hpa:
+    minReplicas: 2
+    maxReplicas: 5
+    cpuUtilization: 30
+
+# Plain-text MongoDB connection string — do NOT commit real credentials.
+# Example: mongodb+srv://user:pass@cluster.mongodb.net/collabdocsdb
+secrets:
+  dbUrl: ""

@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabdocs-fe
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: collabdocs-fe
+  template:
+    metadata:
+      labels:
+        app: collabdocs-fe
+    spec:
+      containers:
+      - name: collabdocs-fe
+        image: "{{ .Values.images.frontend.repository }}:{{ .Values.images.frontend.tag }}"
+        imagePullPolicy: {{ .Values.images.frontend.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.frontend.port }}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: collabdocs-secrets
+              key: db_url
+        - name: PORT
+          value: {{ .Values.frontend.port | quote }}
+        - name: NEXT_PUBLIC_BACKEND_URL
+          value: "http://{{ .Values.frontend.lbHostname }}:{{ .Values.frontend.port }}/api/proxy"
+        - name: NEXT_PUBLIC_WS_URL
+          value: "ws://{{ .Values.frontend.lbHostname }}:{{ .Values.frontend.wsProxyPort }}"
+        - name: BACKEND_API_URL
+          value: "http://collabdocs-be:{{ .Values.backend.port }}"
+        - name: WS_API_URL
+          value: "ws://collabdocs-ws:{{ .Values.websocket.port }}"
+        - name: CRON_HTTP_URL
+          value: "http://collabdocs-be:{{ .Values.backend.port }}"
+        - name: CRON_WS_URL
+          value: "ws://collabdocs-ws:{{ .Values.websocket.port }}"
+
+      - name: ws-proxy
+        image: "{{ .Values.images.wsProxy.repository }}:{{ .Values.images.wsProxy.tag }}"
+        imagePullPolicy: {{ .Values.images.wsProxy.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.frontend.wsProxyPort }}
+        env:
+        - name: WS_TARGET
+          value: "ws://collabdocs-ws:{{ .Values.websocket.port }}"
+        - name: PORT
+          value: {{ .Values.frontend.wsProxyPort | quote }}

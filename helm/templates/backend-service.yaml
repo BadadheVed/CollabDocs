@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: collabdocs-be
+  labels:
+    {{- include "collabdocs.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: collabdocs-be
+  ports:
+  - port: {{ .Values.backend.port }}
+    targetPort: {{ .Values.backend.port }}
