@@ -498,7 +498,10 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
   const { docId: tokenDocId, pin: tokenPin } = (() => {
     try {
       const payload = JSON.parse(atob(user.token.split(".")[1]));
-      return { docId: payload.docId as number | undefined, pin: payload.pin as number | undefined };
+      return {
+        docId: payload.docId as number | undefined,
+        pin: payload.pin as number | undefined,
+      };
     } catch {
       return { docId: undefined, pin: undefined };
     }
@@ -737,10 +740,12 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           const liveEditor = editorRef.current;
           if (!liveEditor) return;
           const currentContent = liveEditor.getJSON();
-          const hasContent = currentContent.content &&
+          const hasContent =
+            currentContent.content &&
             currentContent.content.length > 0 &&
             (currentContent.content.length > 1 ||
-             (currentContent.content[0]?.content && currentContent.content[0].content.length > 0));
+              (currentContent.content[0]?.content &&
+                currentContent.content[0].content.length > 0));
 
           if (!hasContent) {
             liveEditor.commands.setContent(loadResp.data.content);
@@ -1002,26 +1007,38 @@ export default function CollaborativeEditor({ documentId, user }: EditorProps) {
           {tokenDocId !== undefined && (
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
               <span className="text-xs text-gray-400">ID</span>
-              <span className="text-xs font-mono font-semibold text-gray-700">{tokenDocId}</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">
+                {tokenDocId}
+              </span>
               <button
                 onClick={() => copyToClipboard(String(tokenDocId), "id")}
                 className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                 title="Copy Document ID"
               >
-                {copiedField === "id" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                {copiedField === "id" ? (
+                  <Check className="h-3 w-3 text-green-500" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
               </button>
             </div>
           )}
           {tokenPin !== undefined && (
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
               <span className="text-xs text-gray-400">PIN</span>
-              <span className="text-xs font-mono font-semibold text-gray-700">{tokenPin}</span>
+              <span className="text-xs font-mono font-semibold text-gray-700">
+                {tokenPin}
+              </span>
               <button
                 onClick={() => copyToClipboard(String(tokenPin), "pin")}
                 className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                 title="Copy PIN"
               >
-                {copiedField === "pin" ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                {copiedField === "pin" ? (
+                  <Check className="h-3 w-3 text-green-500" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
               </button>
             </div>
           )}
